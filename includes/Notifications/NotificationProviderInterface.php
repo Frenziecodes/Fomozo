@@ -5,7 +5,7 @@
  * @package Fomozo
  */
 
-declare(strict_types=1);
+declare( strict_types=1 );
 
 namespace Fomozo\Notifications;
 
@@ -18,5 +18,5 @@ interface NotificationProviderInterface {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function notifications(int $limit): array;
+	public function notifications( int $limit ): array;
 }
