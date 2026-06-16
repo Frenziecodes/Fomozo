@@ -1,4 +1,5 @@
 === Fomozo ===
+
 Contributors: lewisushindi
 Tags: social proof, fomo, notifications, woocommerce, conversions
 Requires at least: 6.2
@@ -7,30 +8,65 @@ Requires PHP: 8.0
 Stable tag: 1.0.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
+Donate link: https://github.com/Frenziecodes/fomozo
 
-Boost conversions with Fomozo: Social Proof & FOMO Notifications for WordPress.
+Boost conversions with lightweight social proof and FOMO notifications for WordPress.
 
 == Description ==
 
-Fomozo adds modern, lightweight social proof notifications to WordPress.
+Fomozo helps WordPress site owners increase trust and conversions using modern social proof notifications.
 
-Built for speed, trust, and extensibility.
+Display recent purchases, signups, downloads, and other real-time activity notifications to create urgency and build credibility.
+
+Built with performance, simplicity, and extensibility in mind.
 
 == Features ==
 
 * Lightweight frontend notification engine.
-* WooCommerce integration.
-* Minimal onboarding and clean settings.
-* REST-powered notification delivery.
-* Translation-ready and developer-friendly.
+* WooCommerce integration support.
+* Clean and minimal onboarding experience.
+* REST API-powered notification delivery.
+* Translation-ready architecture.
+* Developer-friendly and extensible.
+* Optimized for performance and low resource usage.
 
 == Installation ==
 
 1. Upload the plugin folder to `/wp-content/plugins/`.
-2. Activate Fomozo from Plugins.
-3. Open Fomozo in the WordPress admin menu.
+2. Activate the plugin through the WordPress Plugins screen.
+3. Open the Fomozo menu from the WordPress admin dashboard.
+4. Configure your notification settings.
+
+== Frequently Asked Questions ==
+
+= Does Fomozo work with WooCommerce? =
+
+Yes. Fomozo includes WooCommerce integration support for displaying recent purchase notifications.
+
+= Is Fomozo lightweight? =
+
+Yes. Fomozo is built with performance-first principles and minimal frontend assets.
+
+= Can developers extend Fomozo? =
+
+Yes. The plugin is designed with extensibility and modern WordPress development practices in mind.
+
+== Screenshots ==
+
+1. Fomozo onboarding screen.
+3. Live frontend social proof notification example.
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+
+Initial public release of Fomozo.
 
 == Changelog ==
 
 = 1.0.0 =
+
 * Initial release.
+* WooCommerce integration support.
+* REST-powered notification system.
+* Lightweight frontend notification engine.
