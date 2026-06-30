@@ -18,6 +18,7 @@
 	var max = Number(config.maxPerPage || 5);
 	var interval = Number(config.interval || 9000);
 	var i18n = config.i18n || {};
+	var timeFormat = config.timeFormat || 'rounded';
 
 	function text(value) {
 		return typeof value === 'string' ? value : '';
@@ -51,11 +52,62 @@
 			return i18n.hourAgo || '1 hour ago';
 		}
 
-		return format(i18n.hoursAgo || '%d hours ago', hours);
+		if (diff < 1440) {
+			return format(i18n.hoursAgo || '%d hours ago', hours);
+		}
+
+		if (timeFormat === 'full' || timeFormat === 'days_hours') {
+			return detailedTimeAgo(diff, timeFormat === 'full');
+		}
+
+		var days = Math.round(hours / 24);
+
+		if (days < 2) {
+			return i18n.dayAgo || '1 day ago';
+		}
+
+		return format(i18n.daysAgo || '%d days ago', days);
+	}
+
+	function detailedTimeAgo(totalMinutes, includeMinutes) {
+		var days = Math.floor(totalMinutes / 1440);
+		var remaining = totalMinutes - days * 1440;
+		var hours = Math.floor(remaining / 60);
+		var minutes = remaining - hours * 60;
+		var parts = [];
+
+		if (days > 0) {
+			parts.push(unit(days, 'day'));
+		}
+
+		if (hours > 0) {
+			parts.push(unit(hours, 'hour'));
+		}
+
+		if (includeMinutes && minutes > 0) {
+			parts.push(unit(minutes, 'minute'));
+		}
+
+		if (!parts.length) {
+			return i18n.justNow || 'Just now';
+		}
+
+		return format(i18n.ago || '%s ago', parts.join(' '));
+	}
+
+	function unit(value, type) {
+		var singular = i18n[type] || '1 ' + type;
+		var plural = i18n[type + 's'] || '%d ' + type + 's';
+
+		if (value === 1) {
+			return singular;
+		}
+
+		return format(plural, value);
 	}
 
 	function format(pattern, value) {
-		return pattern.replace('%d', value);
+		return pattern.replace('%d', value).replace('%s', value);
 	}
 
 	function build(notification) {

@@ -62,6 +62,7 @@ Yes. The plugin is designed with extensibility and modern WordPress development 
 = 1.0.3 =
 
 Add composer
+Implement time display settings
 
 = 1.0.2 =
 
@@ -80,6 +81,7 @@ Initial release.
 = 1.0.3 =
 
 * Add composer.
+* Implement time display settings.
 
 = 1.0.2 =
 

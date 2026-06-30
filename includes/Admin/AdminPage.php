@@ -91,6 +91,7 @@ final class AdminPage {
 				'demo_mode'       => isset($_POST['demo_mode']),
 				'position'        => isset($_POST['position']) ? sanitize_text_field(wp_unslash($_POST['position'])) : '',
 				'animation'       => isset($_POST['animation']) ? sanitize_text_field(wp_unslash($_POST['animation'])) : '',
+				'time_format'     => isset($_POST['time_format']) ? sanitize_text_field(wp_unslash($_POST['time_format'])) : '',
 				'initial_delay'   => isset($_POST['initial_delay']) ? absint(wp_unslash($_POST['initial_delay'])) : 0,
 				'interval'        => isset($_POST['interval']) ? absint(wp_unslash($_POST['interval'])) : 0,
 				'max_per_page'    => isset($_POST['max_per_page']) ? absint(wp_unslash($_POST['max_per_page'])) : 0,
@@ -200,6 +201,17 @@ final class AdminPage {
 							<select id="noravo-animation" name="animation">
 								<option value="slide" <?php selected($settings['animation'], 'slide'); ?>><?php esc_html_e('Slide', 'noravo'); ?></option>
 								<option value="fade" <?php selected($settings['animation'], 'fade'); ?>><?php esc_html_e('Fade', 'noravo'); ?></option>
+							</select>
+						</div>
+						<div class="noravo-field">
+							<label for="noravo-time-format">
+								<?php esc_html_e('Time display', 'noravo'); ?>
+								<?php $this->help(__('How notification timestamps are shown after the first day.', 'noravo')); ?>
+							</label>
+							<select id="noravo-time-format" name="time_format">
+								<option value="rounded" <?php selected($settings['time_format'], 'rounded'); ?>><?php esc_html_e('Rounded', 'noravo'); ?></option>
+								<option value="days_hours" <?php selected($settings['time_format'], 'days_hours'); ?>><?php esc_html_e('Days and hours', 'noravo'); ?></option>
+								<option value="full" <?php selected($settings['time_format'], 'full'); ?>><?php esc_html_e('Full detail', 'noravo'); ?></option>
 							</select>
 						</div>
 						<div class="noravo-field-row">

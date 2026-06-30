@@ -18,7 +18,7 @@ final class AssetManager {
 	private SettingsRepository $settings;
 
 	/** @param SettingsRepository $settings Plugin settings store. */
-	public function __construct(SettingsRepository $settings) {
+	public function __construct( SettingsRepository $settings ) {
 		$this->settings = $settings;
 	}
 
@@ -45,20 +45,35 @@ final class AssetManager {
 			'noravo-frontend',
 			'noravoConfig',
 			array(
-				'restUrl'      => esc_url_raw(rest_url('noravo/v1/notifications')),
+				'restUrl'      => esc_url_raw(rest_url( 'noravo/v1/notifications' ) ),
 				'position'     => $settings['position'],
 				'animation'    => $settings['animation'],
+				'timeFormat'   => $settings['time_format'],
 				'initialDelay' => $settings['initial_delay'],
 				'interval'     => $settings['interval'],
 				'maxPerPage'   => $settings['max_per_page'],
 				'i18n'         => array(
-					'justNow'    => __('Just now', 'noravo'),
-					'minuteAgo'  => __('1 minute ago', 'noravo'),
+					'justNow'    => __( 'Just now', 'noravo' ),
+					'minuteAgo'  => __( '1 minute ago', 'noravo' ),
 					/* translators: %d is the number of minutes since the notification event. */
-					'minutesAgo' => __('%d minutes ago', 'noravo'),
-					'hourAgo'    => __('1 hour ago', 'noravo'),
+					'minutesAgo' => __( '%d minutes ago', 'noravo' ),
+					'hourAgo'    => __( '1 hour ago', 'noravo' ),
 					/* translators: %d is the number of hours since the notification event. */
-					'hoursAgo'   => __('%d hours ago', 'noravo'),
+					'hoursAgo'   => __( '%d hours ago', 'noravo' ),
+					'dayAgo'     => __( '1 day ago', 'noravo' ),
+					/* translators: %d is the number of days since the notification event. */
+					'daysAgo'    => __( '%d days ago', 'noravo' ),
+					'minute'     => __( '1 minute', 'noravo' ),
+					/* translators: %d is the number of minutes since the notification event. */
+					'minutes'    => __( '%d minutes', 'noravo' ),
+					'hour'       => __( '1 hour', 'noravo' ),
+					/* translators: %d is the number of hours since the notification event. */
+					'hours'      => __( '%d hours', 'noravo' ),
+					'day'        => __( '1 day', 'noravo' ),
+					/* translators: %d is the number of days since the notification event. */
+					'days'       => __( '%d days', 'noravo' ),
+					/* translators: %s is a human-readable duration, such as "1 day 5 hours". */
+					'ago'        => __( '%s ago', 'noravo' ),
 				),
 			)
 		);
@@ -67,8 +82,8 @@ final class AssetManager {
 	/** Enqueues frontend assets on public pages. */
 	public function enqueue_frontend(): void {
 		$this->register_frontend();
-		wp_enqueue_style('noravo-frontend');
-		wp_enqueue_script('noravo-frontend');
+		wp_enqueue_style( 'noravo-frontend' );
+		wp_enqueue_script( 'noravo-frontend' );
 	}
 
 	/**
@@ -77,7 +92,7 @@ final class AssetManager {
 	 * @param string $hook Current admin page hook suffix.
 	 */
 	public function enqueue_admin(string $hook): void {
-		if ('toplevel_page_noravo' !== $hook) {
+		if ( 'toplevel_page_noravo' !== $hook ) {
 			return;
 		}
 
