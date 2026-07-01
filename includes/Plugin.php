@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Noravo;
 
 use Noravo\Admin\AdminPage;
+use Noravo\Automation\AutomationRuleRepository;
 use Noravo\Assets\AssetManager;
 use Noravo\Frontend\Frontend;
 use Noravo\Integrations\IntegrationRegistry;
@@ -31,6 +32,8 @@ final class Plugin {
 
 	private IntegrationRegistry $integrations;
 
+	private AutomationRuleRepository $automation_rules;
+
 	/** Returns the singleton plugin instance. */
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -43,6 +46,7 @@ final class Plugin {
 	/** Runs first-time setup on plugin activation. */
 	public static function activate(): void {
 		SettingsRepository::install_defaults();
+		AutomationRuleRepository::install_defaults();
 		add_option( 'noravo_onboarding_complete', 'no', '', false );
 	}
 
@@ -51,6 +55,7 @@ final class Plugin {
 		$this->settings     = new SettingsRepository();
 		$this->providers    = new NotificationProviderRegistry();
 		$this->integrations = new IntegrationRegistry();
+		$this->automation_rules = new AutomationRuleRepository();
 
 		$this->register_providers();
 		$this->register_integrations();
@@ -59,10 +64,10 @@ final class Plugin {
 		$assets = new AssetManager( $this->settings );
 
 		( new Frontend( $this->settings, $assets ) )->register();
-		( new NotificationsController( $this->settings, $this->providers ) )->register();
+		( new NotificationsController( $this->settings, $this->providers, $this->automation_rules ) )->register();
 
 		if ( is_admin() ) {
-			( new AdminPage( $this->settings, $this->integrations, $assets ) )->register();
+			( new AdminPage( $this->settings, $this->integrations, $assets, $this->automation_rules ) )->register();
 		}
 	}
 

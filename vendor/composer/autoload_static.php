@@ -30,6 +30,7 @@ class ComposerStaticIniteb8d0f5acaf227b9607718e453005960
         'Noravo\\Admin\\IntegrationsListTable' => __DIR__ . '/../..' . '/includes/Admin/IntegrationsListTable.php',
         'Noravo\\Assets\\AssetManager' => __DIR__ . '/../..' . '/includes/Assets/AssetManager.php',
         'Noravo\\Autoloader' => __DIR__ . '/../..' . '/includes/Autoloader.php',
+        'Noravo\\Automation\\AutomationRuleRepository' => __DIR__ . '/../..' . '/includes/Automation/AutomationRuleRepository.php',
         'Noravo\\Frontend\\Frontend' => __DIR__ . '/../..' . '/includes/Frontend/Frontend.php',
         'Noravo\\Integrations\\AbstractIntegration' => __DIR__ . '/../..' . '/includes/Integrations/AbstractIntegration.php',
         'Noravo\\Integrations\\IntegrationInterface' => __DIR__ . '/../..' . '/includes/Integrations/IntegrationInterface.php',

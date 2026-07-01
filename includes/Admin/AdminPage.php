@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Noravo\Admin;
 
+use Noravo\Automation\AutomationRuleRepository;
 use Noravo\Assets\AssetManager;
 use Noravo\Integrations\IntegrationRegistry;
 use Noravo\Settings\SettingsRepository;
@@ -23,15 +24,19 @@ final class AdminPage {
 
 	private AssetManager $assets;
 
+	private AutomationRuleRepository $automation_rules;
+
 	/**
 	 * @param SettingsRepository  $settings     Settings store.
 	 * @param IntegrationRegistry $integrations Registered integrations.
-	 * @param AssetManager        $assets       Admin asset loader.
+	 * @param AssetManager              $assets           Admin asset loader.
+	 * @param AutomationRuleRepository  $automation_rules Automation rule storage.
 	 */
-	public function __construct(SettingsRepository $settings, IntegrationRegistry $integrations, AssetManager $assets) {
-		$this->settings     = $settings;
-		$this->integrations = $integrations;
-		$this->assets       = $assets;
+	public function __construct(SettingsRepository $settings, IntegrationRegistry $integrations, AssetManager $assets, AutomationRuleRepository $automation_rules) {
+		$this->settings         = $settings;
+		$this->integrations     = $integrations;
+		$this->assets           = $assets;
+		$this->automation_rules = $automation_rules;
 	}
 
 	/** Registers admin menu, assets, and save handler hooks. */
@@ -39,6 +44,7 @@ final class AdminPage {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this->assets, 'enqueue_admin' ) );
 		add_action( 'admin_post_noravo_save_settings', array( $this, 'save' ) );
+		add_action( 'admin_post_noravo_save_automation_rule', array( $this, 'save_automation_rule' ) );
 		add_action( 'admin_post_noravo_toggle_integration', array( $this, 'toggle_integration' ) );
 		add_filter( 'plugin_action_links_' . NORAVO_BASENAME, array( $this, 'action_links' ) );
 	}
@@ -185,6 +191,42 @@ final class AdminPage {
 		exit;
 	}
 
+	/** Saves an automation rule from the simple setup page. */
+	public function save_automation_rule(): void {
+		if (! current_user_can( 'manage_options' ) ) {
+			wp_die(esc_html__( 'You do not have permission to manage Noravo automation rules.', 'noravo' ) );
+		}
+
+		check_admin_referer( 'noravo_save_automation_rule' );
+
+		$trigger = isset( $_POST['trigger']) ? sanitize_key(wp_unslash( $_POST['trigger']) ) : '';
+		$action  = isset( $_POST['rule_action']) ? sanitize_key(wp_unslash( $_POST['rule_action']) ) : '';
+		$status  = isset( $_POST['rule_status']) ? sanitize_key(wp_unslash( $_POST['rule_status']) ) : 'draft';
+		$name    = isset( $_POST['rule_name']) ? sanitize_text_field(wp_unslash( $_POST['rule_name']) ) : '';
+
+		if ('' === $name) {
+			$name = __('Store purchase automation', 'noravo');
+		}
+
+		$action_definition = $this->automation_action_definition($action);
+		$source            = $action_definition['source'] ?? '';
+
+		if ('' === $trigger || '' === $action || '' === $source) {
+			wp_safe_redirect(add_query_arg('page', 'noravo-campaigns', admin_url('admin.php')));
+			exit;
+		}
+
+		$this->automation_rules->create($name, $trigger, $action, 'active' === $status ? 'active' : 'draft', $source);
+
+		wp_safe_redirect(
+			wp_nonce_url(
+				add_query_arg('updated', 'true', admin_url('admin.php?page=noravo-campaigns')),
+				'noravo_settings_updated'
+			)
+		);
+		exit;
+	}
+
 	/** Activates or deactivates a single integration source. */
 	public function toggle_integration(): void {
 		if (! current_user_can( 'manage_options' ) ) {
@@ -308,6 +350,16 @@ final class AdminPage {
 
 		$trigger_groups = $this->automation_trigger_groups();
 		$action_groups  = $this->automation_action_groups();
+		$rules          = $this->automation_rules->all();
+		$view           = isset( $_GET['view']) ? sanitize_key(wp_unslash( $_GET['view']) ) : '';
+
+		if ('builder' === $view) {
+			$this->render_automation_builder();
+			return;
+		}
+
+		$active_rules   = array_filter($rules, static fn (array $rule): bool => 'active' === $rule['status']);
+		$inactive_rules = array_filter($rules, static fn (array $rule): bool => 'active' !== $rule['status']);
 		?>
 		<div class="wrap noravo-admin">
 			<div class="noravo-shell noravo-automation-shell">
@@ -321,17 +373,17 @@ final class AdminPage {
 				<div class="noravo-rule-stats">
 					<div class="noravo-rule-stat">
 						<span class="noravo-rule-stat-icon is-total"><span class="dashicons dashicons-networking"></span></span>
-						<strong>0</strong>
+						<strong><?php echo esc_html((string) count($rules)); ?></strong>
 						<small><?php esc_html_e( 'Total Rules', 'noravo' ); ?></small>
 					</div>
 					<div class="noravo-rule-stat">
 						<span class="noravo-rule-stat-icon is-active"><span class="dashicons dashicons-yes-alt"></span></span>
-						<strong>0</strong>
+						<strong><?php echo esc_html((string) count($active_rules)); ?></strong>
 						<small><?php esc_html_e( 'Active', 'noravo' ); ?></small>
 					</div>
 					<div class="noravo-rule-stat">
 						<span class="noravo-rule-stat-icon is-inactive"><span class="dashicons dashicons-dismiss"></span></span>
-						<strong>0</strong>
+						<strong><?php echo esc_html((string) count($inactive_rules)); ?></strong>
 						<small><?php esc_html_e( 'Inactive', 'noravo' ); ?></small>
 					</div>
 				</div>
@@ -359,9 +411,22 @@ final class AdminPage {
 							</tr>
 						</thead>
 						<tbody>
-							<tr>
-								<td colspan="7" class="noravo-rules-empty"><?php esc_html_e( 'No results', 'noravo' ); ?></td>
-							</tr>
+							<?php if (empty($rules)) : ?>
+								<tr>
+									<td colspan="7" class="noravo-rules-empty"><?php esc_html_e( 'No results', 'noravo' ); ?></td>
+								</tr>
+							<?php endif; ?>
+							<?php foreach ($rules as $rule) : ?>
+								<tr>
+									<td><strong><?php echo esc_html($rule['name']); ?></strong></td>
+									<td><?php echo esc_html($this->automation_trigger_title($rule['trigger'])); ?> -> <?php echo esc_html($this->automation_action_title($rule['action'])); ?></td>
+									<td><?php echo esc_html((string) $rule['times_run']); ?></td>
+									<td><span class="noravo-rule-status <?php echo 'active' === $rule['status'] ? 'is-active' : 'is-draft'; ?>"><?php echo 'active' === $rule['status'] ? esc_html__('Active', 'noravo') : esc_html__('Draft', 'noravo'); ?></span></td>
+									<td><?php echo esc_html($rule['updated_at']); ?></td>
+									<td><?php echo esc_html($rule['created_at']); ?></td>
+									<td>&mdash;</td>
+								</tr>
+							<?php endforeach; ?>
 						</tbody>
 					</table>
 				</div>
@@ -436,7 +501,7 @@ final class AdminPage {
 														</header>
 														<p><?php echo esc_html( $action['description']); ?></p>
 														<button type="button" class="button button-primary" data-noravo-select-action="<?php echo esc_attr( $action['id']); ?>">
-															<?php esc_html_e( 'Use action', 'noravo' ); ?>
+															<?php esc_html_e( 'Set up', 'noravo' ); ?>
 															<span class="dashicons dashicons-arrow-right-alt" aria-hidden="true"></span>
 														</button>
 													</article>
@@ -449,6 +514,58 @@ final class AdminPage {
 						</div>
 					</div>
 				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/** Renders the simple automation rule setup page. */
+	private function render_automation_builder(): void {
+		$trigger = isset( $_GET['trigger']) ? sanitize_key(wp_unslash( $_GET['trigger']) ) : '';
+		$action  = isset( $_GET['rule_action']) ? sanitize_key(wp_unslash( $_GET['rule_action']) ) : '';
+
+		if ('' === $trigger || '' === $action) {
+			wp_safe_redirect(admin_url('admin.php?page=noravo-campaigns'));
+			exit;
+		}
+
+		$trigger_title = $this->automation_trigger_title($trigger);
+		$action_title  = $this->automation_action_title($action);
+		?>
+		<div class="wrap noravo-admin">
+			<div class="noravo-shell noravo-rule-builder-shell">
+				<a class="noravo-builder-back" href="<?php echo esc_url(admin_url('admin.php?page=noravo-campaigns')); ?>">
+					<span class="dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span>
+					<?php esc_html_e('Automation Rules', 'noravo'); ?>
+				</a>
+				<div class="noravo-builder-header">
+					<h1><?php esc_html_e('Set up automation rule', 'noravo'); ?></h1>
+					<p><?php esc_html_e('Review the selected trigger and action, then activate the rule or save it as a draft.', 'noravo'); ?></p>
+				</div>
+				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="noravo-rule-builder-card">
+					<input type="hidden" name="action" value="noravo_save_automation_rule">
+					<input type="hidden" name="trigger" value="<?php echo esc_attr($trigger); ?>">
+					<input type="hidden" name="rule_action" value="<?php echo esc_attr($action); ?>">
+					<?php wp_nonce_field('noravo_save_automation_rule'); ?>
+					<div class="noravo-field">
+						<label for="noravo-rule-name"><?php esc_html_e('Rule name', 'noravo'); ?></label>
+						<input id="noravo-rule-name" type="text" name="rule_name" value="<?php echo esc_attr(sprintf('%s -> %s', $trigger_title, $action_title)); ?>">
+					</div>
+					<div class="noravo-builder-steps">
+						<div>
+							<span><?php esc_html_e('When', 'noravo'); ?></span>
+							<strong><?php echo esc_html($trigger_title); ?></strong>
+						</div>
+						<div>
+							<span><?php esc_html_e('Then', 'noravo'); ?></span>
+							<strong><?php echo esc_html($action_title); ?></strong>
+						</div>
+					</div>
+					<div class="noravo-builder-actions">
+						<button type="submit" name="rule_status" value="draft" class="button button-secondary"><?php esc_html_e('Save as draft', 'noravo'); ?></button>
+						<button type="submit" name="rule_status" value="active" class="button button-primary"><?php esc_html_e('Activate rule', 'noravo'); ?></button>
+					</div>
+				</form>
 			</div>
 		</div>
 		<?php
@@ -788,6 +905,7 @@ final class AdminPage {
 				'title'       => __( 'Display Store Purchases', 'noravo' ),
 				'description' => __( 'Show the WooCommerce purchase notification campaign on the frontend.', 'noravo' ),
 				'campaign'    => 'woocommerce',
+				'source'      => 'woocommerce',
 			),
 		);
 
@@ -801,6 +919,39 @@ final class AdminPage {
 				'actions' => $campaign_actions,
 			),
 		);
+	}
+
+	/** Returns a trigger title by ID. */
+	private function automation_trigger_title(string $trigger_id): string {
+		foreach ($this->automation_trigger_groups() as $group) {
+			foreach ($group['triggers'] as $trigger) {
+				if ($trigger['id'] === $trigger_id) {
+					return $trigger['title'];
+				}
+			}
+		}
+
+		return __('Unknown trigger', 'noravo');
+	}
+
+	/** Returns an action title by ID. */
+	private function automation_action_title(string $action_id): string {
+		$action = $this->automation_action_definition($action_id);
+
+		return $action['title'] ?? __('Unknown action', 'noravo');
+	}
+
+	/** @return array<string, string> */
+	private function automation_action_definition(string $action_id): array {
+		foreach ($this->automation_action_groups() as $group) {
+			foreach ($group['actions'] as $action) {
+				if ($action['id'] === $action_id) {
+					return $action;
+				}
+			}
+		}
+
+		return array();
 	}
 
 	/** Renders a styled checkbox toggle field. */

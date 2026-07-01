@@ -11,6 +11,7 @@ return array(
     'Noravo\\Admin\\IntegrationsListTable' => $baseDir . '/includes/Admin/IntegrationsListTable.php',
     'Noravo\\Assets\\AssetManager' => $baseDir . '/includes/Assets/AssetManager.php',
     'Noravo\\Autoloader' => $baseDir . '/includes/Autoloader.php',
+    'Noravo\\Automation\\AutomationRuleRepository' => $baseDir . '/includes/Automation/AutomationRuleRepository.php',
     'Noravo\\Frontend\\Frontend' => $baseDir . '/includes/Frontend/Frontend.php',
     'Noravo\\Integrations\\AbstractIntegration' => $baseDir . '/includes/Integrations/AbstractIntegration.php',
     'Noravo\\Integrations\\IntegrationInterface' => $baseDir . '/includes/Integrations/IntegrationInterface.php',

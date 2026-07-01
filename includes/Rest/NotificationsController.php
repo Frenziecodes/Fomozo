@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Noravo\Rest;
 
+use Noravo\Automation\AutomationRuleRepository;
 use Noravo\Notifications\NotificationProviderRegistry;
 use Noravo\Settings\SettingsRepository;
 use WP_REST_Request;
@@ -22,13 +23,16 @@ final class NotificationsController {
 
 	private NotificationProviderRegistry $providers;
 
+	private AutomationRuleRepository $automation_rules;
+
 	/**
 	 * @param SettingsRepository           $settings  Plugin settings store.
 	 * @param NotificationProviderRegistry $providers Notification source registry.
 	 */
-	public function __construct(SettingsRepository $settings, NotificationProviderRegistry $providers) {
-		$this->settings  = $settings;
-		$this->providers = $providers;
+	public function __construct(SettingsRepository $settings, NotificationProviderRegistry $providers, AutomationRuleRepository $automation_rules) {
+		$this->settings         = $settings;
+		$this->providers        = $providers;
+		$this->automation_rules = $automation_rules;
 	}
 
 	/** Registers REST route hooks. */
@@ -69,6 +73,7 @@ final class NotificationsController {
 
 		$settings = $this->settings->all();
 		$sources  = $settings['enabled_sources'];
+		$sources  = array_values(array_unique(array_merge($sources, $this->automation_rules->active_sources())));
 
 		if ( ! $settings['demo_mode']) {
 			$sources = array_values(array_diff( $sources, array( 'demo' ) ) );

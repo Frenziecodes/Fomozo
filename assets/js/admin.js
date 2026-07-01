@@ -17,6 +17,8 @@
 	var actionCategoryButtons = modal.querySelectorAll('[data-noravo-action-group]');
 	var actionPanels = modal.querySelectorAll('[data-noravo-action-panel]');
 	var triggerButtons = modal.querySelectorAll('[data-noravo-select-trigger]');
+	var actionButtons = modal.querySelectorAll('[data-noravo-select-action]');
+	var selectedTrigger = '';
 
 	function openModal() {
 		showStep('trigger');
@@ -89,8 +91,23 @@
 
 	triggerButtons.forEach(function (button) {
 		button.addEventListener('click', function () {
+			selectedTrigger = button.getAttribute('data-noravo-select-trigger') || '';
 			showStep('action');
 			activateActionGroup('campaigns');
+		});
+	});
+
+	actionButtons.forEach(function (button) {
+		button.addEventListener('click', function () {
+			var selectedAction = button.getAttribute('data-noravo-select-action') || '';
+			var url = new URL(window.location.href);
+
+			closeModal();
+			url.searchParams.set('page', 'noravo-campaigns');
+			url.searchParams.set('view', 'builder');
+			url.searchParams.set('trigger', selectedTrigger);
+			url.searchParams.set('rule_action', selectedAction);
+			window.location.href = url.toString();
 		});
 	});
 
