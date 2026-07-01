@@ -224,12 +224,17 @@
 	margin-top: 0;
 }
 
+.noravo-integrations-list-table .column-icon {
+	width: 56px;
+	text-align: center;
+}
+
 .noravo-integrations-list-table .column-integration {
-	width: 30%;
+	width: 28%;
 }
 
 .noravo-integrations-list-table .column-description {
-	width: 50%;
+	width: 48%;
 }
 
 .noravo-integrations-list-table .column-status {
@@ -237,7 +242,19 @@
 	text-align: center;
 }
 
+.noravo-integrations-list-table td.column-icon,
 .noravo-integrations-list-table td.column-status {
+	vertical-align: middle;
+}
+
+.noravo-integrations-list-table .column-icon img.noravo-integration-icon {
+	display: inline-block;
+	width: 24px;
+	height: 24px;
+	max-width: 24px;
+	max-height: 24px;
+	object-fit: contain;
+	border-radius: 4px;
 	vertical-align: middle;
 }
 
