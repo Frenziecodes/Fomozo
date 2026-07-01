@@ -470,7 +470,7 @@
 .noravo-rules-search {
 	position: relative;
 	display: block;
-	width: 280px;
+	width: 420px;
 	max-width: 100%;
 }
 
@@ -495,6 +495,7 @@
 }
 
 .noravo-rules-tools {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
 	gap: 28px;
@@ -516,13 +517,150 @@
 	color: #1d2327;
 }
 
+.noravo-rules-config {
+	position: relative;
+}
+
+.noravo-rules-config-toggle {
+	display: grid;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	place-items: center;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+}
+
+.noravo-rules-config-toggle .dashicons {
+	color: #4353e8;
+}
+
+.noravo-rules-config-menu {
+	position: absolute;
+	top: calc(100% + 12px);
+	right: 0;
+	z-index: 20;
+	width: 360px;
+	padding: 8px;
+	background: #ffffff;
+	border: 1px solid #d8dde6;
+	border-radius: 6px;
+	box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+}
+
+.noravo-rules-config-menu details {
+	margin: 0;
+}
+
+.noravo-rules-config-menu summary {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: 14px;
+	width: 100%;
+	min-height: 46px;
+	padding: 0 12px;
+	text-align: left;
+	color: #1d2327;
+	background: #ffffff;
+	border: 0;
+	border-radius: 4px;
+	cursor: pointer;
+	list-style: none;
+}
+
+.noravo-rules-config-menu summary::-webkit-details-marker {
+	display: none;
+}
+
+.noravo-rules-config-menu summary:hover,
+.noravo-rules-config-menu summary:focus {
+	box-shadow: inset 0 0 0 2px #4353e8;
+	outline: 0;
+}
+
+.noravo-rules-config-menu em {
+	font-style: normal;
+	color: #70757a;
+}
+
+.noravo-rules-config-menu .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
+	color: #1d2327;
+}
+
+.noravo-rules-config-menu details[open] summary .dashicons-arrow-right-alt2 {
+	transform: rotate(90deg);
+}
+
+.noravo-rules-config-options {
+	display: grid;
+	gap: 2px;
+	padding: 2px 0 8px 18px;
+}
+
+.noravo-rules-config-options a {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: 10px;
+	min-height: 34px;
+	padding: 0 12px;
+	color: #1d2327;
+	text-decoration: none;
+	border-radius: 4px;
+}
+
+.noravo-rules-config-options a:hover,
+.noravo-rules-config-options a:focus {
+	background: #f3f5fb;
+	outline: 0;
+}
+
+.noravo-rules-config-options a .dashicons-yes {
+	color: #4353e8;
+}
+
 .noravo-rules-table {
+	table-layout: fixed;
+	width: 100%;
 	border: 0;
 	box-shadow: none;
 }
 
+.noravo-rules-check-col {
+	width: 42px;
+}
+
+.noravo-rules-rule-col {
+	width: 28%;
+}
+
+.noravo-rules-steps-col {
+	width: 28%;
+}
+
+.noravo-rules-runs-col {
+	width: 9%;
+}
+
+.noravo-rules-status-col {
+	width: 9%;
+}
+
+.noravo-rules-date-col {
+	width: 12%;
+}
+
+.noravo-rules-actions-col {
+	width: 10%;
+}
+
 .noravo-rules-table thead th {
-	padding: 28px 28px;
+	padding: 24px 20px;
 	font-size: 13px;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -532,7 +670,104 @@
 }
 
 .noravo-rules-table td {
+	padding: 26px 20px;
+	vertical-align: middle;
 	border-top: 0;
+	border-bottom: 1px solid #eef1f5;
+	font-size: 15px;
+	color: #1d2327;
+}
+
+.noravo-rules-check-cell {
+	padding-right: 0 !important;
+	text-align: center;
+}
+
+.noravo-rules-checkbox {
+	display: inline-grid;
+	width: 18px;
+	height: 18px;
+	place-items: center;
+	opacity: 0;
+	transition: opacity 140ms ease;
+}
+
+.noravo-rules-table thead tr:hover .noravo-rules-checkbox,
+.noravo-rules-table tbody tr:hover .noravo-rules-checkbox,
+.noravo-rules-checkbox:focus-within,
+.noravo-rules-table tr.is-selected .noravo-rules-checkbox {
+	opacity: 1;
+}
+
+.noravo-rules-checkbox input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+}
+
+.noravo-rules-checkbox span:not(.screen-reader-text) {
+	display: block;
+	width: 16px;
+	height: 16px;
+	box-sizing: border-box;
+	background: #ffffff;
+	border: 1px solid #9ca3af;
+	border-radius: 2px;
+}
+
+.noravo-rules-checkbox input:checked + span {
+	background: #4353e8;
+	border-color: #4353e8;
+	box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.noravo-rule-title {
+	display: grid;
+	gap: 6px;
+	max-width: 360px;
+}
+
+.noravo-rule-title strong {
+	font-size: 16px;
+	line-height: 1.25;
+	word-break: break-word;
+}
+
+.noravo-rule-title small {
+	font-size: 14px;
+	line-height: 1.35;
+	color: #70757a;
+}
+
+.noravo-rule-steps,
+.noravo-rule-actions,
+.noravo-pagination-links {
+	display: inline-flex;
+	align-items: center;
+}
+
+.noravo-rule-steps {
+	gap: 10px;
+	color: #2c3338;
+	min-width: 0;
+}
+
+.noravo-rule-step-icon {
+	display: inline-grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	color: #6f43b8;
+	background: #f2ebff;
+	border: 1px solid #decdf8;
+	border-radius: 8px;
+}
+
+.noravo-rule-step-icon .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
 }
 
 .noravo-rules-empty {
@@ -543,24 +778,106 @@
 	color: #777;
 }
 
-.noravo-rule-status {
+.noravo-rule-toggle {
 	display: inline-flex;
 	align-items: center;
-	min-height: 24px;
-	padding: 0 9px;
-	font-size: 12px;
-	font-weight: 700;
+	width: 42px;
+	height: 22px;
+	padding: 2px;
+	box-sizing: border-box;
+	background: #b8c0cc;
 	border-radius: 999px;
+	text-decoration: none;
+	transition: background 160ms ease;
 }
 
-.noravo-rule-status.is-active {
-	color: #166534;
-	background: #dcfce7;
+.noravo-rule-toggle span:not(.screen-reader-text) {
+	display: block;
+	width: 18px;
+	height: 18px;
+	background: #ffffff;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+	transition: transform 160ms ease;
 }
 
-.noravo-rule-status.is-draft {
-	color: #52525b;
-	background: #f4f4f5;
+.noravo-rule-toggle.is-active {
+	background: #4353e8;
+}
+
+.noravo-rule-toggle.is-active span:not(.screen-reader-text) {
+	transform: translateX(20px);
+}
+
+.noravo-rule-toggle:focus {
+	box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #4353e8;
+	outline: 0;
+}
+
+.noravo-rule-actions {
+	gap: 18px;
+	opacity: 0;
+	transition: opacity 140ms ease;
+}
+
+.noravo-rules-table tbody tr:hover .noravo-rule-actions,
+.noravo-rule-actions:focus-within {
+	opacity: 1;
+}
+
+.noravo-rule-actions a {
+	color: #1d2327;
+	text-decoration: none;
+}
+
+.noravo-rule-actions a.is-delete {
+	color: #c40000;
+}
+
+.noravo-rule-actions .dashicons {
+	width: 22px;
+	height: 22px;
+	font-size: 22px;
+}
+
+.noravo-rules-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+	min-height: 70px;
+	padding: 16px 44px;
+	background: #ffffff;
+}
+
+.noravo-rules-per-page select {
+	min-width: 150px;
+	min-height: 44px;
+	font-size: 15px;
+	border-color: #9ca3af;
+	border-radius: 2px;
+}
+
+.noravo-pagination-links {
+	gap: 14px;
+	font-size: 14px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: #1d2327;
+}
+
+.noravo-pagination-links a,
+.noravo-pagination-links .is-disabled {
+	display: inline-grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	text-decoration: none;
+	color: #1d2327;
+}
+
+.noravo-pagination-links .is-disabled {
+	color: #9ca3af;
 }
 
 .noravo-rule-builder-shell {
@@ -1249,6 +1566,12 @@
 
 	.noravo-rules-table-shell {
 		overflow-x: auto;
+	}
+
+	.noravo-rules-pagination {
+		align-items: flex-start;
+		flex-direction: column;
+		padding: 18px 22px;
 	}
 
 	.noravo-rule-modal-body {

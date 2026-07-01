@@ -45,6 +45,9 @@ final class AdminPage {
 		add_action( 'admin_enqueue_scripts', array( $this->assets, 'enqueue_admin' ) );
 		add_action( 'admin_post_noravo_save_settings', array( $this, 'save' ) );
 		add_action( 'admin_post_noravo_save_automation_rule', array( $this, 'save_automation_rule' ) );
+		add_action( 'admin_post_noravo_toggle_automation_rule', array( $this, 'toggle_automation_rule' ) );
+		add_action( 'admin_post_noravo_delete_automation_rule', array( $this, 'delete_automation_rule' ) );
+		add_action( 'admin_post_noravo_delete_automation_rules', array( $this, 'delete_automation_rules' ) );
 		add_action( 'admin_post_noravo_toggle_integration', array( $this, 'toggle_integration' ) );
 		add_filter( 'plugin_action_links_' . NORAVO_BASENAME, array( $this, 'action_links' ) );
 	}
@@ -203,6 +206,7 @@ final class AdminPage {
 		$action  = isset( $_POST['rule_action']) ? sanitize_key(wp_unslash( $_POST['rule_action']) ) : '';
 		$status  = isset( $_POST['rule_status']) ? sanitize_key(wp_unslash( $_POST['rule_status']) ) : 'draft';
 		$name    = isset( $_POST['rule_name']) ? sanitize_text_field(wp_unslash( $_POST['rule_name']) ) : '';
+		$rule_id = isset( $_POST['rule_id']) ? sanitize_key(wp_unslash( $_POST['rule_id']) ) : '';
 
 		if ('' === $name) {
 			$name = __('Store purchase automation', 'noravo');
@@ -216,7 +220,80 @@ final class AdminPage {
 			exit;
 		}
 
-		$this->automation_rules->create($name, $trigger, $action, 'active' === $status ? 'active' : 'draft', $source);
+		$status = 'active' === $status ? 'active' : 'draft';
+
+		if ('' !== $rule_id && null !== $this->automation_rules->find($rule_id)) {
+			$this->automation_rules->update_rule($rule_id, $name, $trigger, $action, $status, $source);
+		} else {
+			$this->automation_rules->create($name, $trigger, $action, $status, $source);
+		}
+
+		wp_safe_redirect(
+			wp_nonce_url(
+				add_query_arg('updated', 'true', admin_url('admin.php?page=noravo-campaigns')),
+				'noravo_settings_updated'
+			)
+		);
+		exit;
+	}
+
+	/** Activates or deactivates an automation rule from the rules table. */
+	public function toggle_automation_rule(): void {
+		if (! current_user_can( 'manage_options' ) ) {
+			wp_die(esc_html__( 'You do not have permission to manage Noravo automation rules.', 'noravo' ) );
+		}
+
+		$rule_id = isset( $_GET['rule_id']) ? sanitize_key(wp_unslash( $_GET['rule_id']) ) : '';
+		$state   = isset( $_GET['state']) ? sanitize_key(wp_unslash( $_GET['state']) ) : '';
+
+		check_admin_referer( 'noravo_toggle_automation_rule_' . $rule_id );
+
+		if ('' !== $rule_id && null !== $this->automation_rules->find($rule_id)) {
+			$this->automation_rules->update_status($rule_id, 'active' === $state ? 'active' : 'draft');
+		}
+
+		wp_safe_redirect(
+			wp_nonce_url(
+				add_query_arg('updated', 'true', admin_url('admin.php?page=noravo-campaigns')),
+				'noravo_settings_updated'
+			)
+		);
+		exit;
+	}
+
+	/** Deletes an automation rule from the rules table. */
+	public function delete_automation_rule(): void {
+		if (! current_user_can( 'manage_options' ) ) {
+			wp_die(esc_html__( 'You do not have permission to manage Noravo automation rules.', 'noravo' ) );
+		}
+
+		$rule_id = isset( $_GET['rule_id']) ? sanitize_key(wp_unslash( $_GET['rule_id']) ) : '';
+
+		check_admin_referer( 'noravo_delete_automation_rule_' . $rule_id );
+
+		if ('' !== $rule_id) {
+			$this->automation_rules->delete($rule_id);
+		}
+
+		wp_safe_redirect(
+			wp_nonce_url(
+				add_query_arg('updated', 'true', admin_url('admin.php?page=noravo-campaigns')),
+				'noravo_settings_updated'
+			)
+		);
+		exit;
+	}
+
+	/** Deletes checked automation rules from the rules table. */
+	public function delete_automation_rules(): void {
+		if (! current_user_can( 'manage_options' ) ) {
+			wp_die(esc_html__( 'You do not have permission to manage Noravo automation rules.', 'noravo' ) );
+		}
+
+		check_admin_referer( 'noravo_delete_automation_rules' );
+
+		$rule_ids = isset( $_POST['rule_ids']) ? array_map( 'sanitize_key', (array) wp_unslash( $_POST['rule_ids']) ) : array();
+		$this->automation_rules->delete_many($rule_ids);
 
 		wp_safe_redirect(
 			wp_nonce_url(
@@ -360,6 +437,65 @@ final class AdminPage {
 
 		$active_rules   = array_filter($rules, static fn (array $rule): bool => 'active' === $rule['status']);
 		$inactive_rules = array_filter($rules, static fn (array $rule): bool => 'active' !== $rule['status']);
+		$per_page       = isset( $_GET['per_page']) ? absint( wp_unslash( $_GET['per_page']) ) : 25;
+		$per_page       = in_array( $per_page, array( 10, 25, 50, 100 ), true ) ? $per_page : 25;
+		$sort           = isset( $_GET['sort']) ? sanitize_key(wp_unslash( $_GET['sort']) ) : 'created';
+		$order          = isset( $_GET['order']) ? sanitize_key(wp_unslash( $_GET['order']) ) : 'desc';
+		$sort           = in_array( $sort, array( 'rule', 'times_run', 'status', 'updated', 'created' ), true ) ? $sort : 'created';
+		$order          = 'asc' === $order ? 'asc' : 'desc';
+		$visible_fields = isset( $_GET['fields'])
+			? array_values(array_filter(array_map('sanitize_key', explode(',', (string) wp_unslash( $_GET['fields']) ) ) ) )
+			: array( 'times_run', 'status', 'updated', 'created' );
+		$visible_fields = array_values(array_intersect($visible_fields, array( 'times_run', 'status', 'updated', 'created' )));
+		$field_labels   = array(
+			'times_run' => __( 'Times Run', 'noravo' ),
+			'status'    => __( 'Status', 'noravo' ),
+			'updated'   => __( 'Updated', 'noravo' ),
+			'created'   => __( 'Created', 'noravo' ),
+		);
+		$sort_labels    = array(
+			'rule'      => __( 'Rule', 'noravo' ),
+			'times_run' => __( 'Times Run', 'noravo' ),
+			'status'    => __( 'Status', 'noravo' ),
+			'updated'   => __( 'Updated', 'noravo' ),
+			'created'   => __( 'Created', 'noravo' ),
+		);
+		usort(
+			$rules,
+			static function (array $a, array $b) use ($sort, $order): int {
+				$left  = match ($sort) {
+					'rule'      => strtolower((string) $a['name']),
+					'times_run' => absint($a['times_run']),
+					'status'    => (string) $a['status'],
+					'updated'   => strtotime((string) $a['updated_at']) ?: 0,
+					default     => strtotime((string) $a['created_at']) ?: 0,
+				};
+				$right = match ($sort) {
+					'rule'      => strtolower((string) $b['name']),
+					'times_run' => absint($b['times_run']),
+					'status'    => (string) $b['status'],
+					'updated'   => strtotime((string) $b['updated_at']) ?: 0,
+					default     => strtotime((string) $b['created_at']) ?: 0,
+				};
+				$result = $left <=> $right;
+
+				return 'asc' === $order ? $result : -$result;
+			}
+		);
+		$total_items    = count( $rules );
+		$total_pages    = max( 1, (int) ceil( $total_items / $per_page ) );
+		$current_page   = isset( $_GET['rule_page']) ? absint( wp_unslash( $_GET['rule_page']) ) : 1;
+		$current_page   = max( 1, min( $current_page, $total_pages ) );
+		$paged_rules    = array_slice( $rules, ( $current_page - 1 ) * $per_page, $per_page );
+		$url_state      = array(
+			'fields'   => implode(',', $visible_fields),
+			'per_page' => $per_page,
+			'sort'     => $sort,
+			'order'    => $order,
+		);
+		$prev_page_url  = $this->automation_rules_url(array_merge($url_state, array( 'rule_page' => max( 1, $current_page - 1 ) ) ) );
+		$next_page_url  = $this->automation_rules_url(array_merge($url_state, array( 'rule_page' => min( $total_pages, $current_page + 1 ) ) ) );
+		$column_count   = 4 + count($visible_fields);
 		?>
 		<div class="wrap noravo-admin">
 			<div class="noravo-shell noravo-automation-shell">
@@ -388,47 +524,233 @@ final class AdminPage {
 					</div>
 				</div>
 				<div class="noravo-rules-table-shell">
-					<div class="noravo-rules-toolbar">
-						<label class="noravo-rules-search">
-							<span class="dashicons dashicons-search" aria-hidden="true"></span>
-							<input type="search" placeholder="<?php esc_attr_e( 'Search', 'noravo' ); ?>">
-						</label>
-						<div class="noravo-rules-tools">
-							<button type="button"><?php esc_html_e( 'Delete all', 'noravo' ); ?></button>
-							<span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
+					<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="noravo-rules-form">
+						<input type="hidden" name="action" value="noravo_delete_automation_rules">
+						<?php wp_nonce_field('noravo_delete_automation_rules'); ?>
+						<div class="noravo-rules-toolbar">
+							<label class="noravo-rules-search">
+								<span class="dashicons dashicons-search" aria-hidden="true"></span>
+								<input type="search" placeholder="<?php esc_attr_e( 'Search', 'noravo' ); ?>">
+							</label>
+							<div class="noravo-rules-tools">
+								<button type="submit" class="noravo-rules-delete-all"><?php esc_html_e( 'Delete all', 'noravo' ); ?></button>
+								<div class="noravo-rules-config">
+									<button type="button" class="noravo-rules-config-toggle" aria-expanded="false" aria-haspopup="true" data-noravo-rules-config>
+										<span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
+										<span class="screen-reader-text"><?php esc_html_e( 'Configure automation list', 'noravo' ); ?></span>
+									</button>
+									<div class="noravo-rules-config-menu" hidden data-noravo-rules-config-menu>
+										<details>
+											<summary>
+												<span><?php esc_html_e( 'Sort by', 'noravo' ); ?></span>
+												<em><?php echo esc_html($sort_labels[$sort]); ?></em>
+												<span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+											</summary>
+											<div class="noravo-rules-config-options">
+												<?php foreach ( $sort_labels as $sort_key => $sort_label ) : ?>
+													<?php foreach ( array( 'desc' => __( 'Descending', 'noravo' ), 'asc' => __( 'Ascending', 'noravo' ) ) as $order_key => $order_label ) : ?>
+														<a href="<?php echo esc_url($this->automation_rules_url(array_merge($url_state, array( 'sort' => $sort_key, 'order' => $order_key, 'rule_page' => 1 ) ) ) ); ?>">
+															<span><?php echo esc_html($sort_label); ?></span>
+															<em><?php echo esc_html($order_label); ?></em>
+															<?php if ($sort === $sort_key && $order === $order_key) : ?>
+																<span class="dashicons dashicons-yes" aria-hidden="true"></span>
+															<?php endif; ?>
+														</a>
+													<?php endforeach; ?>
+												<?php endforeach; ?>
+											</div>
+										</details>
+										<details>
+											<summary>
+												<span><?php esc_html_e( 'Fields', 'noravo' ); ?></span>
+												<span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+											</summary>
+											<div class="noravo-rules-config-options">
+												<?php foreach ( $field_labels as $field_key => $field_label ) : ?>
+													<?php
+													$field_is_visible = in_array($field_key, $visible_fields, true);
+													$next_fields      = $field_is_visible ? array_values(array_diff($visible_fields, array( $field_key ))) : array_values(array_unique(array_merge($visible_fields, array( $field_key ))));
+													?>
+													<a href="<?php echo esc_url($this->automation_rules_url(array_merge($url_state, array( 'fields' => implode(',', $next_fields), 'rule_page' => 1 ) ) ) ); ?>">
+														<span><?php echo esc_html($field_label); ?></span>
+														<?php if ($field_is_visible) : ?>
+															<span class="dashicons dashicons-yes" aria-hidden="true"></span>
+														<?php endif; ?>
+													</a>
+												<?php endforeach; ?>
+											</div>
+										</details>
+										<details>
+											<summary>
+												<span><?php esc_html_e( 'Items per page', 'noravo' ); ?></span>
+												<em><?php echo esc_html((string) $per_page); ?></em>
+												<span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+											</summary>
+											<div class="noravo-rules-config-options">
+												<?php foreach ( array( 10, 25, 50, 100 ) as $option ) : ?>
+													<a href="<?php echo esc_url($this->automation_rules_url(array_merge($url_state, array( 'per_page' => $option, 'rule_page' => 1 ) ) ) ); ?>">
+														<span><?php echo esc_html(sprintf(__('%d per page', 'noravo'), $option)); ?></span>
+														<?php if ($per_page === $option) : ?>
+															<span class="dashicons dashicons-yes" aria-hidden="true"></span>
+														<?php endif; ?>
+													</a>
+												<?php endforeach; ?>
+											</div>
+										</details>
+									</div>
+								</div>
+							</div>
+						</div>
+						<table class="widefat noravo-rules-table">
+							<colgroup>
+								<col class="noravo-rules-check-col">
+								<col class="noravo-rules-rule-col">
+								<col class="noravo-rules-steps-col">
+								<?php if (in_array('times_run', $visible_fields, true)) : ?><col class="noravo-rules-runs-col"><?php endif; ?>
+								<?php if (in_array('status', $visible_fields, true)) : ?><col class="noravo-rules-status-col"><?php endif; ?>
+								<?php if (in_array('updated', $visible_fields, true)) : ?><col class="noravo-rules-date-col"><?php endif; ?>
+								<?php if (in_array('created', $visible_fields, true)) : ?><col class="noravo-rules-date-col"><?php endif; ?>
+								<col class="noravo-rules-actions-col">
+							</colgroup>
+							<thead>
+								<tr>
+									<th class="noravo-rules-check-cell">
+										<label class="noravo-rules-checkbox">
+											<input type="checkbox" data-noravo-select-all-rules>
+											<span></span>
+											<em class="screen-reader-text"><?php esc_html_e( 'Select all automation rules', 'noravo' ); ?></em>
+										</label>
+									</th>
+									<th><?php esc_html_e( 'Rule', 'noravo' ); ?></th>
+									<th><?php esc_html_e( 'Steps', 'noravo' ); ?></th>
+									<?php if (in_array('times_run', $visible_fields, true)) : ?><th><?php esc_html_e( 'Times Run', 'noravo' ); ?></th><?php endif; ?>
+									<?php if (in_array('status', $visible_fields, true)) : ?><th><?php esc_html_e( 'Status', 'noravo' ); ?></th><?php endif; ?>
+									<?php if (in_array('updated', $visible_fields, true)) : ?><th><?php esc_html_e( 'Updated', 'noravo' ); ?></th><?php endif; ?>
+									<?php if (in_array('created', $visible_fields, true)) : ?><th><?php esc_html_e( 'Created', 'noravo' ); ?> <span aria-hidden="true">&darr;</span></th><?php endif; ?>
+									<th><?php esc_html_e( 'Actions', 'noravo' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php if (empty($rules)) : ?>
+									<tr>
+										<td colspan="<?php echo esc_attr((string) $column_count); ?>" class="noravo-rules-empty"><?php esc_html_e( 'No results', 'noravo' ); ?></td>
+									</tr>
+								<?php endif; ?>
+								<?php foreach ($paged_rules as $rule) : ?>
+								<?php
+								$is_active     = 'active' === $rule['status'];
+								$next_status   = $is_active ? 'draft' : 'active';
+								$toggle_url    = wp_nonce_url(
+									add_query_arg(
+										array(
+											'action'  => 'noravo_toggle_automation_rule',
+											'rule_id' => $rule['id'],
+											'state'   => $next_status,
+										),
+										admin_url('admin-post.php')
+									),
+									'noravo_toggle_automation_rule_' . $rule['id']
+								);
+								$edit_url      = add_query_arg(
+									array(
+										'page'    => 'noravo-campaigns',
+										'view'    => 'builder',
+										'rule_id' => $rule['id'],
+									),
+									admin_url('admin.php')
+								);
+								$delete_url    = wp_nonce_url(
+									add_query_arg(
+										array(
+											'action'  => 'noravo_delete_automation_rule',
+											'rule_id' => $rule['id'],
+										),
+										admin_url('admin-post.php')
+									),
+									'noravo_delete_automation_rule_' . $rule['id']
+								);
+								$trigger_title = $this->automation_trigger_title($rule['trigger']);
+								$action_title  = $this->automation_action_title($rule['action']);
+								?>
+								<tr>
+									<td class="noravo-rules-check-cell">
+										<label class="noravo-rules-checkbox">
+											<input type="checkbox" name="rule_ids[]" value="<?php echo esc_attr($rule['id']); ?>" data-noravo-rule-checkbox>
+											<span></span>
+											<em class="screen-reader-text"><?php echo esc_html(sprintf(__('Select %s', 'noravo'), $rule['name'])); ?></em>
+										</label>
+									</td>
+									<td>
+										<div class="noravo-rule-title">
+											<strong><?php echo esc_html($rule['name']); ?></strong>
+											<small><?php echo esc_html($this->automation_trigger_description($rule['trigger'])); ?></small>
+										</div>
+									</td>
+									<td>
+										<div class="noravo-rule-steps">
+											<span class="noravo-rule-step-icon" title="<?php echo esc_attr($trigger_title); ?>" aria-label="<?php echo esc_attr($trigger_title); ?>"><span class="dashicons dashicons-money-alt"></span></span>
+											<span aria-hidden="true">&rsaquo;</span>
+											<span class="noravo-rule-step-icon" title="<?php echo esc_attr($action_title); ?>" aria-label="<?php echo esc_attr($action_title); ?>"><span class="dashicons dashicons-megaphone"></span></span>
+										</div>
+									</td>
+									<?php if (in_array('times_run', $visible_fields, true)) : ?>
+									<td><?php echo esc_html((string) $rule['times_run']); ?></td>
+									<?php endif; ?>
+									<?php if (in_array('status', $visible_fields, true)) : ?>
+									<td>
+										<a class="noravo-rule-toggle <?php echo $is_active ? 'is-active' : 'is-draft'; ?>" href="<?php echo esc_url($toggle_url); ?>" role="switch" aria-checked="<?php echo $is_active ? 'true' : 'false'; ?>">
+											<span></span>
+											<em class="screen-reader-text"><?php echo $is_active ? esc_html__('Deactivate rule', 'noravo') : esc_html__('Activate rule', 'noravo'); ?></em>
+										</a>
+									</td>
+									<?php endif; ?>
+									<?php if (in_array('updated', $visible_fields, true)) : ?>
+									<td><?php echo esc_html($this->automation_rule_time_label((string) $rule['updated_at'])); ?></td>
+									<?php endif; ?>
+									<?php if (in_array('created', $visible_fields, true)) : ?>
+									<td><?php echo esc_html($this->automation_rule_time_label((string) $rule['created_at'])); ?></td>
+									<?php endif; ?>
+									<td>
+										<div class="noravo-rule-actions">
+											<a href="<?php echo esc_url($edit_url); ?>" aria-label="<?php esc_attr_e('Edit rule', 'noravo'); ?>">
+												<span class="dashicons dashicons-edit"></span>
+											</a>
+											<a class="is-delete" href="<?php echo esc_url($delete_url); ?>" aria-label="<?php esc_attr_e('Delete rule', 'noravo'); ?>">
+												<span class="dashicons dashicons-trash"></span>
+											</a>
+										</div>
+									</td>
+								</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</form>
+					<div class="noravo-rules-pagination">
+						<form method="get" class="noravo-rules-per-page">
+							<input type="hidden" name="page" value="noravo-campaigns">
+							<input type="hidden" name="fields" value="<?php echo esc_attr(implode(',', $visible_fields)); ?>">
+							<input type="hidden" name="sort" value="<?php echo esc_attr($sort); ?>">
+							<input type="hidden" name="order" value="<?php echo esc_attr($order); ?>">
+							<select name="per_page" onchange="this.form.submit()">
+								<?php foreach ( array( 10, 25, 50, 100 ) as $option ) : ?>
+									<option value="<?php echo esc_attr((string) $option); ?>" <?php selected($per_page, $option); ?>><?php echo esc_html(sprintf(__('%d per page', 'noravo'), $option)); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</form>
+						<div class="noravo-pagination-links">
+							<span><?php echo esc_html(sprintf(__('Page %1$d of %2$d', 'noravo'), $current_page, $total_pages)); ?></span>
+							<?php if (1 < $current_page) : ?>
+								<a href="<?php echo esc_url($prev_page_url); ?>" aria-label="<?php esc_attr_e('Previous page', 'noravo'); ?>"><span class="dashicons dashicons-arrow-left-alt2"></span></a>
+							<?php else : ?>
+								<span class="is-disabled"><span class="dashicons dashicons-arrow-left-alt2"></span></span>
+							<?php endif; ?>
+							<?php if ($current_page < $total_pages) : ?>
+								<a href="<?php echo esc_url($next_page_url); ?>" aria-label="<?php esc_attr_e('Next page', 'noravo'); ?>"><span class="dashicons dashicons-arrow-right-alt2"></span></a>
+							<?php else : ?>
+								<span class="is-disabled"><span class="dashicons dashicons-arrow-right-alt2"></span></span>
+							<?php endif; ?>
 						</div>
 					</div>
-					<table class="widefat fixed noravo-rules-table">
-						<thead>
-							<tr>
-								<th><?php esc_html_e( 'Rule', 'noravo' ); ?></th>
-								<th><?php esc_html_e( 'Steps', 'noravo' ); ?></th>
-								<th><?php esc_html_e( 'Times Run', 'noravo' ); ?></th>
-								<th><?php esc_html_e( 'Status', 'noravo' ); ?></th>
-								<th><?php esc_html_e( 'Updated', 'noravo' ); ?></th>
-								<th><?php esc_html_e( 'Created', 'noravo' ); ?> <span aria-hidden="true">&darr;</span></th>
-								<th><?php esc_html_e( 'Actions', 'noravo' ); ?></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php if (empty($rules)) : ?>
-								<tr>
-									<td colspan="7" class="noravo-rules-empty"><?php esc_html_e( 'No results', 'noravo' ); ?></td>
-								</tr>
-							<?php endif; ?>
-							<?php foreach ($rules as $rule) : ?>
-								<tr>
-									<td><strong><?php echo esc_html($rule['name']); ?></strong></td>
-									<td><?php echo esc_html($this->automation_trigger_title($rule['trigger'])); ?> -> <?php echo esc_html($this->automation_action_title($rule['action'])); ?></td>
-									<td><?php echo esc_html((string) $rule['times_run']); ?></td>
-									<td><span class="noravo-rule-status <?php echo 'active' === $rule['status'] ? 'is-active' : 'is-draft'; ?>"><?php echo 'active' === $rule['status'] ? esc_html__('Active', 'noravo') : esc_html__('Draft', 'noravo'); ?></span></td>
-									<td><?php echo esc_html($rule['updated_at']); ?></td>
-									<td><?php echo esc_html($rule['created_at']); ?></td>
-									<td>&mdash;</td>
-								</tr>
-							<?php endforeach; ?>
-						</tbody>
-					</table>
 				</div>
 				<div class="noravo-rule-modal" id="noravo-rule-modal" aria-hidden="true">
 					<div class="noravo-rule-modal-panel" role="dialog" aria-modal="true" aria-labelledby="noravo-rule-modal-title">
@@ -521,8 +843,15 @@ final class AdminPage {
 
 	/** Renders the simple automation rule setup page. */
 	private function render_automation_builder(): void {
+		$rule_id = isset( $_GET['rule_id']) ? sanitize_key(wp_unslash( $_GET['rule_id']) ) : '';
+		$rule    = '' !== $rule_id ? $this->automation_rules->find($rule_id) : null;
 		$trigger = isset( $_GET['trigger']) ? sanitize_key(wp_unslash( $_GET['trigger']) ) : '';
 		$action  = isset( $_GET['rule_action']) ? sanitize_key(wp_unslash( $_GET['rule_action']) ) : '';
+
+		if (null !== $rule) {
+			$trigger = (string) $rule['trigger'];
+			$action  = (string) $rule['action'];
+		}
 
 		if ('' === $trigger || '' === $action) {
 			wp_safe_redirect(admin_url('admin.php?page=noravo-campaigns'));
@@ -531,6 +860,7 @@ final class AdminPage {
 
 		$trigger_title = $this->automation_trigger_title($trigger);
 		$action_title  = $this->automation_action_title($action);
+		$rule_name     = null !== $rule ? (string) $rule['name'] : sprintf('%s -> %s', $trigger_title, $action_title);
 		?>
 		<div class="wrap noravo-admin">
 			<div class="noravo-shell noravo-rule-builder-shell">
@@ -539,17 +869,18 @@ final class AdminPage {
 					<?php esc_html_e('Automation Rules', 'noravo'); ?>
 				</a>
 				<div class="noravo-builder-header">
-					<h1><?php esc_html_e('Set up automation rule', 'noravo'); ?></h1>
+					<h1><?php echo null !== $rule ? esc_html__('Edit automation rule', 'noravo') : esc_html__('Set up automation rule', 'noravo'); ?></h1>
 					<p><?php esc_html_e('Review the selected trigger and action, then activate the rule or save it as a draft.', 'noravo'); ?></p>
 				</div>
 				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="noravo-rule-builder-card">
 					<input type="hidden" name="action" value="noravo_save_automation_rule">
+					<input type="hidden" name="rule_id" value="<?php echo esc_attr($rule_id); ?>">
 					<input type="hidden" name="trigger" value="<?php echo esc_attr($trigger); ?>">
 					<input type="hidden" name="rule_action" value="<?php echo esc_attr($action); ?>">
 					<?php wp_nonce_field('noravo_save_automation_rule'); ?>
 					<div class="noravo-field">
 						<label for="noravo-rule-name"><?php esc_html_e('Rule name', 'noravo'); ?></label>
-						<input id="noravo-rule-name" type="text" name="rule_name" value="<?php echo esc_attr(sprintf('%s -> %s', $trigger_title, $action_title)); ?>">
+						<input id="noravo-rule-name" type="text" name="rule_name" value="<?php echo esc_attr($rule_name); ?>">
 					</div>
 					<div class="noravo-builder-steps">
 						<div>
@@ -923,15 +1254,29 @@ final class AdminPage {
 
 	/** Returns a trigger title by ID. */
 	private function automation_trigger_title(string $trigger_id): string {
+		$trigger = $this->automation_trigger_definition($trigger_id);
+
+		return $trigger['title'] ?? __('Unknown trigger', 'noravo');
+	}
+
+	/** Returns a trigger description by ID. */
+	private function automation_trigger_description(string $trigger_id): string {
+		$trigger = $this->automation_trigger_definition($trigger_id);
+
+		return $trigger['description'] ?? '';
+	}
+
+	/** @return array<string, string> */
+	private function automation_trigger_definition(string $trigger_id): array {
 		foreach ($this->automation_trigger_groups() as $group) {
 			foreach ($group['triggers'] as $trigger) {
 				if ($trigger['id'] === $trigger_id) {
-					return $trigger['title'];
+					return $trigger;
 				}
 			}
 		}
 
-		return __('Unknown trigger', 'noravo');
+		return array();
 	}
 
 	/** Returns an action title by ID. */
@@ -952,6 +1297,38 @@ final class AdminPage {
 		}
 
 		return array();
+	}
+
+	/** Formats a stored rule timestamp for the automation table. */
+	private function automation_rule_time_label(string $mysql): string {
+		if ('' === $mysql) {
+			return '—';
+		}
+
+		$timestamp = strtotime($mysql);
+
+		if (false === $timestamp) {
+			return $mysql;
+		}
+
+		return sprintf(
+			/* translators: %s: Human-readable elapsed time. */
+			__('%s ago', 'noravo'),
+			human_time_diff($timestamp, current_time('timestamp'))
+		);
+	}
+
+	/** Builds an automation rules list URL while preserving known table state. */
+	private function automation_rules_url(array $args = array()): string {
+		return add_query_arg(
+			array_merge(
+				array(
+					'page' => 'noravo-campaigns',
+				),
+				$args
+			),
+			admin_url('admin.php')
+		);
 	}
 
 	/** Renders a styled checkbox toggle field. */

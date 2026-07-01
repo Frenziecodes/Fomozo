@@ -84,7 +84,7 @@ final class WooCommerceIntegration extends AbstractIntegration implements Notifi
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function notifications(int $limit): array {
-		if (! $this->is_available() || ! $this->settings->is_source_enabled('woocommerce')) {
+		if (! $this->is_available()) {
 			return array();
 		}
 

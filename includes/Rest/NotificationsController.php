@@ -71,19 +71,34 @@ final class NotificationsController {
 			return new WP_REST_Response( array( 'notifications' => array() ), 200 );
 		}
 
-		$settings = $this->settings->all();
-		$sources  = $settings['enabled_sources'];
-		$sources  = array_values(array_unique(array_merge($sources, $this->automation_rules->active_sources())));
+		$settings            = $this->settings->all();
+		$active_rule_sources = $this->automation_rules->active_sources();
+		$sources             = $settings['enabled_sources'];
+		$sources             = array_values(array_unique(array_merge($sources, $active_rule_sources)));
 
 		if ( ! $settings['demo_mode']) {
 			$sources = array_values(array_diff( $sources, array( 'demo' ) ) );
 		}
 
-		$limit = max( 1, min( (int) $request->get_param( 'limit' ), (int) $settings['max_per_page'] ) );
+		$limit         = max( 1, min( (int) $request->get_param( 'limit' ), (int) $settings['max_per_page'] ) );
+		$notifications = $this->providers->collect( $sources, $limit );
+		$source_counts = array();
+
+		foreach ( $notifications as $notification ) {
+			$source = sanitize_key((string) ($notification['source'] ?? ''));
+
+			if (in_array($source, $active_rule_sources, true)) {
+				$source_counts[$source] = ($source_counts[$source] ?? 0) + 1;
+			}
+		}
+
+		if (! empty($source_counts)) {
+			$this->automation_rules->record_runs_for_sources($source_counts);
+		}
 
 		return new WP_REST_Response(
 			array(
-				'notifications' => $this->providers->collect( $sources, $limit ),
+				'notifications' => $notifications,
 			),
 			200
 		);

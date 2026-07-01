@@ -57,6 +57,92 @@ final class AutomationRuleRepository {
 		return $rule;
 	}
 
+	/** Finds a rule by ID. */
+	public function find(string $id): ?array {
+		foreach ($this->all() as $rule) {
+			if ($rule['id'] === $id) {
+				return $rule;
+			}
+		}
+
+		return null;
+	}
+
+	/** Updates a rule by ID. */
+	public function update_rule(string $id, string $name, string $trigger, string $action, string $status, string $source): void {
+		$rules = $this->all();
+		$now   = current_time('mysql');
+
+		foreach ($rules as $index => $rule) {
+			if ($rule['id'] !== $id) {
+				continue;
+			}
+
+			$rules[$index] = $this->sanitize_rule(
+				array_merge(
+					$rule,
+					array(
+						'name'       => $name,
+						'trigger'    => $trigger,
+						'action'     => $action,
+						'status'     => $status,
+						'source'     => $source,
+						'updated_at' => $now,
+					)
+				)
+			);
+
+			update_option(self::OPTION, $rules, false);
+			return;
+		}
+	}
+
+	/** Toggles a rule status. */
+	public function update_status(string $id, string $status): void {
+		$rules = $this->all();
+		$now   = current_time('mysql');
+
+		foreach ($rules as $index => $rule) {
+			if ($rule['id'] === $id) {
+				$rules[$index]['status']     = 'active' === $status ? 'active' : 'draft';
+				$rules[$index]['updated_at'] = $now;
+				break;
+			}
+		}
+
+		update_option(self::OPTION, array_values(array_map(array($this, 'sanitize_rule'), $rules)), false);
+	}
+
+	/** Deletes a rule. */
+	public function delete(string $id): void {
+		$rules = array_values(
+			array_filter(
+				$this->all(),
+				static fn (array $rule): bool => $rule['id'] !== $id
+			)
+		);
+
+		update_option(self::OPTION, $rules, false);
+	}
+
+	/** Deletes several rules by ID. */
+	public function delete_many(array $ids): void {
+		$ids = array_values(array_filter(array_map('sanitize_key', $ids)));
+
+		if (empty($ids)) {
+			return;
+		}
+
+		$rules = array_values(
+			array_filter(
+				$this->all(),
+				static fn (array $rule): bool => ! in_array($rule['id'], $ids, true)
+			)
+		);
+
+		update_option(self::OPTION, $rules, false);
+	}
+
 	/** @return array<int, string> */
 	public function active_sources(): array {
 		$sources = array();
@@ -68,6 +154,29 @@ final class AutomationRuleRepository {
 		}
 
 		return array_values(array_unique($sources));
+	}
+
+	/** Increments active rule run counts by source. */
+	public function record_runs_for_sources(array $source_counts): void {
+		$rules   = $this->all();
+		$changed = false;
+		$now     = current_time('mysql');
+
+		foreach ($rules as $index => $rule) {
+			$source = (string) $rule['source'];
+
+			if ('active' !== $rule['status'] || ! isset($source_counts[$source])) {
+				continue;
+			}
+
+			$rules[$index]['times_run']  = absint($rule['times_run']) + absint($source_counts[$source]);
+			$rules[$index]['updated_at'] = $now;
+			$changed = true;
+		}
+
+		if ($changed) {
+			update_option(self::OPTION, array_values(array_map(array($this, 'sanitize_rule'), $rules)), false);
+		}
 	}
 
 	/** @return array<string, mixed> */

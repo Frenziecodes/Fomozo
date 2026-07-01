@@ -18,7 +18,46 @@
 	var actionPanels = modal.querySelectorAll('[data-noravo-action-panel]');
 	var triggerButtons = modal.querySelectorAll('[data-noravo-select-trigger]');
 	var actionButtons = modal.querySelectorAll('[data-noravo-select-action]');
+	var rulesForm = document.querySelector('.noravo-rules-form');
+	var selectAllRules = document.querySelector('[data-noravo-select-all-rules]');
+	var ruleCheckboxes = document.querySelectorAll('[data-noravo-rule-checkbox]');
+	var configButton = document.querySelector('[data-noravo-rules-config]');
+	var configMenu = document.querySelector('[data-noravo-rules-config-menu]');
 	var selectedTrigger = '';
+
+	function updateRuleSelection() {
+		var checkedCount = 0;
+
+		ruleCheckboxes.forEach(function (checkbox) {
+			var row = checkbox.closest('tr');
+
+			if (checkbox.checked) {
+				checkedCount += 1;
+			}
+
+			if (row) {
+				row.classList.toggle('is-selected', checkbox.checked);
+			}
+		});
+
+		if (selectAllRules) {
+			selectAllRules.checked = ruleCheckboxes.length > 0 && checkedCount === ruleCheckboxes.length;
+			selectAllRules.indeterminate = checkedCount > 0 && checkedCount < ruleCheckboxes.length;
+
+			if (selectAllRules.closest('tr')) {
+				selectAllRules.closest('tr').classList.toggle('is-selected', checkedCount > 0);
+			}
+		}
+	}
+
+	function closeConfigMenu() {
+		if (!configButton || !configMenu) {
+			return;
+		}
+
+		configMenu.hidden = true;
+		configButton.setAttribute('aria-expanded', 'false');
+	}
 
 	function openModal() {
 		showStep('trigger');
@@ -111,6 +150,44 @@
 		});
 	});
 
+	if (selectAllRules) {
+		selectAllRules.addEventListener('change', function () {
+			ruleCheckboxes.forEach(function (checkbox) {
+				checkbox.checked = selectAllRules.checked;
+			});
+
+			updateRuleSelection();
+		});
+	}
+
+	ruleCheckboxes.forEach(function (checkbox) {
+		checkbox.addEventListener('change', updateRuleSelection);
+	});
+
+	if (rulesForm) {
+		rulesForm.addEventListener('submit', function (event) {
+			var hasSelection = Array.prototype.some.call(ruleCheckboxes, function (checkbox) {
+				return checkbox.checked;
+			});
+
+			if (!hasSelection) {
+				event.preventDefault();
+			}
+		});
+	}
+
+	if (configButton && configMenu) {
+		configButton.addEventListener('click', function (event) {
+			event.stopPropagation();
+			configMenu.hidden = !configMenu.hidden;
+			configButton.setAttribute('aria-expanded', configMenu.hidden ? 'false' : 'true');
+		});
+
+		configMenu.addEventListener('click', function (event) {
+			event.stopPropagation();
+		});
+	}
+
 	if (backButton) {
 		backButton.addEventListener('click', function () {
 			showStep('trigger');
@@ -127,5 +204,15 @@
 		if ('Escape' === event.key && modal.classList.contains('is-open')) {
 			closeModal();
 		}
+
+		if ('Escape' === event.key) {
+			closeConfigMenu();
+		}
 	});
+
+	document.addEventListener('click', function () {
+		closeConfigMenu();
+	});
+
+	updateRuleSelection();
 }());
