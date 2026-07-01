@@ -59,6 +59,9 @@ Yes. The plugin is designed with extensibility and modern WordPress development 
 
 == Upgrade Notice ==
 
+= 1.0.4 =
+Add freemius SDK
+
 = 1.0.3 =
 
 Add composer
@@ -78,6 +81,9 @@ Rename plugin
 Initial release.
 
 == Changelog ==
+
+= 1.0.4 =
+* Add freemius SDK.
 
 = 1.0.3 =
 

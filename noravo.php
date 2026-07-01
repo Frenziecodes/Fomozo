@@ -38,6 +38,40 @@ if ( is_readable( $noravo_autoload ) ) {
 	\Noravo\Autoloader::register();
 }
 
+if ( ! function_exists( 'nor_fs' ) ) {
+    // Create a helper function for easy SDK access.
+    function nor_fs() {
+        global $nor_fs;
+
+        if ( ! isset( $nor_fs ) ) {
+            // Include Freemius SDK.
+            // SDK is auto-loaded through Composer
+
+            $nor_fs = fs_dynamic_init( array(
+                'id'                  => '33277',
+                'slug'                => 'noravo',
+                'type'                => 'plugin',
+                'public_key'          => 'pk_3f0980dd20f78c24eebd269bd7924',
+                'is_premium'          => false,
+                'has_addons'          => false,
+                'has_paid_plans'      => false,
+                'is_org_compliant'    => true,
+                'menu'                => array(
+                    'slug'           => 'noravo',
+                    'contact'        => false,
+                ),
+            ) );
+        }
+
+        return $nor_fs;
+    }
+
+    // Init Freemius.
+    nor_fs();
+    // Signal that SDK was initiated.
+    do_action( 'nor_fs_loaded' );
+}
+
 register_activation_hook(
 	__FILE__,
 	static function (): void {
