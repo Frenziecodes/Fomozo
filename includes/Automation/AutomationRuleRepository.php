@@ -141,6 +141,28 @@ final class AutomationRuleRepository {
 		return $changed;
 	}
 
+	/** Clears pause notes for rules that depend on a source. */
+	public function clear_status_note_by_source(string $source): int {
+		$source  = sanitize_key($source);
+		$rules   = $this->all();
+		$changed = 0;
+
+		foreach ($rules as $index => $rule) {
+			if ($source !== $rule['source'] || '' === $rule['status_note']) {
+				continue;
+			}
+
+			$rules[$index]['status_note'] = '';
+			$changed++;
+		}
+
+		if (0 < $changed) {
+			update_option(self::OPTION, array_values(array_map(array($this, 'sanitize_rule'), $rules)), false);
+		}
+
+		return $changed;
+	}
+
 	/** Deletes a rule. */
 	public function delete(string $id): void {
 		$rules = array_values(

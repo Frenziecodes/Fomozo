@@ -355,6 +355,7 @@ final class AdminPage {
 
 		if ( 'activate' === $state && $this->integration_is_available( $integration) ) {
 			$sources[] = $integration;
+			$this->automation_rules->clear_status_note_by_source($integration);
 		}
 
 		if ( 'deactivate' === $state ) {
