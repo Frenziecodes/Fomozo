@@ -19,7 +19,6 @@ final class SettingsRepository {
 	public static function defaults(): array {
 		return array(
 			'enabled'         => true,
-			'demo_mode'       => true,
 			'position'        => 'bottom-left',
 			'animation'       => 'slide',
 			'time_format'     => 'rounded',
@@ -27,7 +26,7 @@ final class SettingsRepository {
 			'initial_delay'   => 2500,
 			'interval'        => 9000,
 			'max_per_page'    => 5,
-			'enabled_sources' => array( 'demo' ),
+			'enabled_sources' => array(),
 		);
 	}
 
@@ -89,7 +88,6 @@ final class SettingsRepository {
 
 		return array(
 			'enabled'         => ! empty( $settings['enabled']),
-			'demo_mode'       => ! empty( $settings['demo_mode']),
 			'position'        => in_array( $settings['position'] ?? '', $positions, true) ? $settings['position'] : $defaults['position'],
 			'animation'       => in_array( $settings['animation'] ?? '', $animations, true) ? $settings['animation'] : $defaults['animation'],
 			'time_format'     => in_array( $settings['time_format'] ?? '', $time_formats, true) ? $settings['time_format'] : $defaults['time_format'],

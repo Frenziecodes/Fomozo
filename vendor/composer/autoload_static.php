@@ -36,7 +36,7 @@ class ComposerStaticIniteb8d0f5acaf227b9607718e453005960
         'Noravo\\Integrations\\IntegrationInterface' => __DIR__ . '/../..' . '/includes/Integrations/IntegrationInterface.php',
         'Noravo\\Integrations\\IntegrationRegistry' => __DIR__ . '/../..' . '/includes/Integrations/IntegrationRegistry.php',
         'Noravo\\Integrations\\WooCommerce\\WooCommerceIntegration' => __DIR__ . '/../..' . '/includes/Integrations/WooCommerce/WooCommerceIntegration.php',
-        'Noravo\\Notifications\\DemoNotificationProvider' => __DIR__ . '/../..' . '/includes/Notifications/DemoNotificationProvider.php',
+        'Noravo\\Notifications\\NotificationHistoryRepository' => __DIR__ . '/../..' . '/includes/Notifications/NotificationHistoryRepository.php',
         'Noravo\\Notifications\\NotificationProviderInterface' => __DIR__ . '/../..' . '/includes/Notifications/NotificationProviderInterface.php',
         'Noravo\\Notifications\\NotificationProviderRegistry' => __DIR__ . '/../..' . '/includes/Notifications/NotificationProviderRegistry.php',
         'Noravo\\Notifications\\NotificationSanitizer' => __DIR__ . '/../..' . '/includes/Notifications/NotificationSanitizer.php',

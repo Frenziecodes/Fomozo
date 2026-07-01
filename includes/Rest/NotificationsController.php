@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Noravo\Rest;
 
 use Noravo\Automation\AutomationRuleRepository;
+use Noravo\Notifications\NotificationHistoryRepository;
 use Noravo\Notifications\NotificationProviderRegistry;
 use Noravo\Settings\SettingsRepository;
 use WP_REST_Request;
@@ -24,15 +25,17 @@ final class NotificationsController {
 	private NotificationProviderRegistry $providers;
 
 	private AutomationRuleRepository $automation_rules;
+	private NotificationHistoryRepository $notification_history;
 
 	/**
 	 * @param SettingsRepository           $settings  Plugin settings store.
 	 * @param NotificationProviderRegistry $providers Notification source registry.
 	 */
-	public function __construct(SettingsRepository $settings, NotificationProviderRegistry $providers, AutomationRuleRepository $automation_rules) {
-		$this->settings         = $settings;
-		$this->providers        = $providers;
-		$this->automation_rules = $automation_rules;
+	public function __construct(SettingsRepository $settings, NotificationProviderRegistry $providers, AutomationRuleRepository $automation_rules, NotificationHistoryRepository $notification_history) {
+		$this->settings             = $settings;
+		$this->providers            = $providers;
+		$this->automation_rules     = $automation_rules;
+		$this->notification_history = $notification_history;
 	}
 
 	/** Registers REST route hooks. */
@@ -58,6 +61,16 @@ final class NotificationsController {
 				),
 			)
 		);
+
+		register_rest_route(
+			'noravo/v1',
+			'/notifications/displayed',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'record_displayed' ),
+				'permission_callback' => '__return_true',
+			)
+		);
 	}
 
 	/**
@@ -75,10 +88,6 @@ final class NotificationsController {
 		$active_rule_sources = $this->automation_rules->active_sources();
 		$sources             = $settings['enabled_sources'];
 		$sources             = array_values(array_unique(array_merge($sources, $active_rule_sources)));
-
-		if ( ! $settings['demo_mode']) {
-			$sources = array_values(array_diff( $sources, array( 'demo' ) ) );
-		}
 
 		$limit         = max( 1, min( (int) $request->get_param( 'limit' ), (int) $settings['max_per_page'] ) );
 		$notifications = $this->providers->collect( $sources, $limit );
@@ -102,5 +111,18 @@ final class NotificationsController {
 			),
 			200
 		);
+	}
+
+	/** Records a notification after it is displayed on the frontend. */
+	public function record_displayed(WP_REST_Request $request): WP_REST_Response {
+		$notification = $request->get_json_params();
+
+		if (! is_array($notification)) {
+			$notification = array();
+		}
+
+		$this->notification_history->record($notification);
+
+		return new WP_REST_Response(array( 'recorded' => true ), 200);
 	}
 }

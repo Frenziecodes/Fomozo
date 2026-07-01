@@ -24,18 +24,23 @@ final class AssetManager {
 
 	/** Registers frontend styles, scripts, and localized config. */
 	public function register_frontend(): void {
+		$frontend_css_path = NORAVO_PATH . 'assets/css/frontend.css';
+		$frontend_css_ver  = is_readable($frontend_css_path) ? (string) filemtime($frontend_css_path) : NORAVO_VERSION;
+		$frontend_js_path  = NORAVO_PATH . 'assets/js/frontend.js';
+		$frontend_js_ver   = is_readable($frontend_js_path) ? (string) filemtime($frontend_js_path) : NORAVO_VERSION;
+
 		wp_register_style(
 			'noravo-frontend',
 			NORAVO_URL . 'assets/css/frontend.css',
 			array(),
-			NORAVO_VERSION
+			$frontend_css_ver
 		);
 
 		wp_register_script(
 			'noravo-frontend',
 			NORAVO_URL . 'assets/js/frontend.js',
 			array(),
-			NORAVO_VERSION,
+			$frontend_js_ver,
 			true
 		);
 
@@ -46,6 +51,8 @@ final class AssetManager {
 			'noravoConfig',
 			array(
 				'restUrl'      => esc_url_raw(rest_url( 'noravo/v1/notifications' ) ),
+				'displayedUrl' => esc_url_raw(rest_url( 'noravo/v1/notifications/displayed' ) ),
+				'restNonce'    => wp_create_nonce('wp_rest'),
 				'position'     => $settings['position'],
 				'animation'    => $settings['animation'],
 				'timeFormat'   => $settings['time_format'],

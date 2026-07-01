@@ -17,7 +17,7 @@ return array(
     'Noravo\\Integrations\\IntegrationInterface' => $baseDir . '/includes/Integrations/IntegrationInterface.php',
     'Noravo\\Integrations\\IntegrationRegistry' => $baseDir . '/includes/Integrations/IntegrationRegistry.php',
     'Noravo\\Integrations\\WooCommerce\\WooCommerceIntegration' => $baseDir . '/includes/Integrations/WooCommerce/WooCommerceIntegration.php',
-    'Noravo\\Notifications\\DemoNotificationProvider' => $baseDir . '/includes/Notifications/DemoNotificationProvider.php',
+    'Noravo\\Notifications\\NotificationHistoryRepository' => $baseDir . '/includes/Notifications/NotificationHistoryRepository.php',
     'Noravo\\Notifications\\NotificationProviderInterface' => $baseDir . '/includes/Notifications/NotificationProviderInterface.php',
     'Noravo\\Notifications\\NotificationProviderRegistry' => $baseDir . '/includes/Notifications/NotificationProviderRegistry.php',
     'Noravo\\Notifications\\NotificationSanitizer' => $baseDir . '/includes/Notifications/NotificationSanitizer.php',

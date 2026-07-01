@@ -151,17 +151,21 @@
 	}
 
 	function showNext() {
+		var notification;
+
 		if (active || !queue.length || shown >= max) {
 			return;
 		}
 
-		active = build(queue.shift());
+		notification = queue.shift();
+		active = build(notification);
 		root.appendChild(active);
 		requestAnimationFrame(function () {
 			active.classList.add('is-visible');
 		});
 
 		shown += 1;
+		recordDisplayed(notification);
 
 		setTimeout(function () {
 			if (!active) {
@@ -176,6 +180,23 @@
 				showNext();
 			}, 260);
 		}, Math.max(4000, interval - 1000));
+	}
+
+	function recordDisplayed(notification) {
+		if (!config.displayedUrl || !notification) {
+			return;
+		}
+
+		fetch(config.displayedUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			keepalive: true,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': text(config.restNonce)
+			},
+			body: JSON.stringify(notification)
+		}).catch(function () {});
 	}
 
 	function start(notifications) {

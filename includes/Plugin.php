@@ -15,7 +15,7 @@ use Noravo\Assets\AssetManager;
 use Noravo\Frontend\Frontend;
 use Noravo\Integrations\IntegrationRegistry;
 use Noravo\Integrations\WooCommerce\WooCommerceIntegration;
-use Noravo\Notifications\DemoNotificationProvider;
+use Noravo\Notifications\NotificationHistoryRepository;
 use Noravo\Notifications\NotificationProviderRegistry;
 use Noravo\Rest\NotificationsController;
 use Noravo\Settings\SettingsRepository;
@@ -34,6 +34,8 @@ final class Plugin {
 
 	private AutomationRuleRepository $automation_rules;
 
+	private NotificationHistoryRepository $notification_history;
+
 	/** Returns the singleton plugin instance. */
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -47,34 +49,33 @@ final class Plugin {
 	public static function activate(): void {
 		SettingsRepository::install_defaults();
 		AutomationRuleRepository::install_defaults();
+		NotificationHistoryRepository::install_defaults();
 		add_option( 'noravo_onboarding_complete', 'no', '', false );
 	}
 
 	/** Initializes registries, assets, and frontend/admin hooks. */
 	public function boot(): void {
-		$this->settings     = new SettingsRepository();
-		$this->providers    = new NotificationProviderRegistry();
-		$this->integrations = new IntegrationRegistry();
-		$this->automation_rules = new AutomationRuleRepository();
+		$this->settings             = new SettingsRepository();
+		$this->providers            = new NotificationProviderRegistry();
+		$this->integrations         = new IntegrationRegistry();
+		$this->automation_rules     = new AutomationRuleRepository();
+		$this->notification_history = new NotificationHistoryRepository();
 
 		$this->register_providers();
 		$this->register_integrations();
-		$this->maybe_disable_demo_for_real_orders();
 
 		$assets = new AssetManager( $this->settings );
 
 		( new Frontend( $this->settings, $assets ) )->register();
-		( new NotificationsController( $this->settings, $this->providers, $this->automation_rules ) )->register();
+		( new NotificationsController( $this->settings, $this->providers, $this->automation_rules, $this->notification_history ) )->register();
 
 		if ( is_admin() ) {
-			( new AdminPage( $this->settings, $this->integrations, $assets, $this->automation_rules ) )->register();
+			( new AdminPage( $this->settings, $this->integrations, $assets, $this->automation_rules, $this->notification_history ) )->register();
 		}
 	}
 
 	/** Registers built-in and third-party notification providers. */
 	private function register_providers(): void {
-		$this->providers->register( new DemoNotificationProvider() );
-
 		/**
 		 * Register custom notification providers.
 		 *
@@ -98,28 +99,5 @@ final class Plugin {
 		 * @param IntegrationRegistry $integrations Integration registry.
 		 */
 		do_action( 'noravo_register_integrations', $this->integrations );
-	}
-
-	/** Disables demo mode once WooCommerce has real order data. */
-	private function maybe_disable_demo_for_real_orders(): void {
-		$settings = $this->settings->all();
-
-		if ( empty( $settings['demo_mode'] ) ) {
-			return;
-		}
-
-		$woocommerce = new WooCommerceIntegration( $this->settings );
-
-		if ( $woocommerce->has_real_data() ) {
-			$sources   = $settings['enabled_sources'];
-			$sources[] = 'woocommerce';
-
-			$this->settings->update(
-				array(
-					'demo_mode'       => false,
-					'enabled_sources' => array_values(array_unique( $sources ) ),
-				)
-			);
-		}
 	}
 }

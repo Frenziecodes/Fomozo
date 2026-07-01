@@ -12,6 +12,7 @@ namespace Noravo\Admin;
 use Noravo\Automation\AutomationRuleRepository;
 use Noravo\Assets\AssetManager;
 use Noravo\Integrations\IntegrationRegistry;
+use Noravo\Notifications\NotificationHistoryRepository;
 use Noravo\Settings\SettingsRepository;
 
 /**
@@ -25,18 +26,21 @@ final class AdminPage {
 	private AssetManager $assets;
 
 	private AutomationRuleRepository $automation_rules;
+	private NotificationHistoryRepository $notification_history;
 
 	/**
 	 * @param SettingsRepository  $settings     Settings store.
 	 * @param IntegrationRegistry $integrations Registered integrations.
-	 * @param AssetManager              $assets           Admin asset loader.
-	 * @param AutomationRuleRepository  $automation_rules Automation rule storage.
+	 * @param AssetManager                  $assets               Admin asset loader.
+	 * @param AutomationRuleRepository      $automation_rules     Automation rule storage.
+	 * @param NotificationHistoryRepository $notification_history Displayed notification history.
 	 */
-	public function __construct(SettingsRepository $settings, IntegrationRegistry $integrations, AssetManager $assets, AutomationRuleRepository $automation_rules) {
-		$this->settings         = $settings;
-		$this->integrations     = $integrations;
-		$this->assets           = $assets;
-		$this->automation_rules = $automation_rules;
+	public function __construct(SettingsRepository $settings, IntegrationRegistry $integrations, AssetManager $assets, AutomationRuleRepository $automation_rules, NotificationHistoryRepository $notification_history) {
+		$this->settings             = $settings;
+		$this->integrations         = $integrations;
+		$this->assets               = $assets;
+		$this->automation_rules     = $automation_rules;
+		$this->notification_history = $notification_history;
 	}
 
 	/** Registers admin menu, assets, and save handler hooks. */
@@ -141,7 +145,6 @@ final class AdminPage {
 
 		if ( 'campaigns' === $form ) {
 			$updates['enabled']   = isset( $_POST['enabled']);
-			$updates['demo_mode'] = isset( $_POST['demo_mode']);
 		}
 
 		if ( 'integrations' === $form ) {
@@ -316,7 +319,7 @@ final class AdminPage {
 		check_admin_referer( 'noravo_toggle_integration_' . $integration );
 
 		$settings = $this->settings->all();
-		$sources  = array_values(array_unique(array_merge(array( 'demo' ), (array) $settings['enabled_sources']) ) );
+		$sources  = array_values(array_unique((array) $settings['enabled_sources']) );
 
 		if ( 'activate' === $state && $this->integration_is_available( $integration) ) {
 			$sources[] = $integration;
@@ -348,72 +351,90 @@ final class AdminPage {
 		}
 
 		$settings       = $this->settings->all();
-		$is_onboarding  = 'yes' !== get_option( 'noravo_onboarding_complete', 'no' );
-		$integrations   = $this->integrations->all();
-		$enabled_count  = count( $settings['enabled_sources']);
+		$rules          = $this->automation_rules->all();
+		$active_rules   = array_filter($rules, static fn (array $rule): bool => 'active' === $rule['status']);
+		$enabled_count  = count(
+			array_filter(
+				$this->integrations->all(),
+				static fn ($integration): bool => in_array($integration->id(), (array) $settings['enabled_sources'], true)
+			)
+		);
+		$recent_items   = $this->notification_history->latest(5);
+		$trigger_groups = $this->automation_trigger_groups();
+		$action_groups  = $this->automation_action_groups();
 		?>
 		<div class="wrap noravo-admin">
-			<div class="noravo-shell">
-				<?php $this->header( __( 'Dashboard', 'noravo' ), __( 'Overview of notifications and plugin status.', 'noravo' ), $settings); ?>
+			<div class="noravo-shell noravo-dashboard-shell">
 				<?php $this->updated_notice(); ?>
-
-				<?php if ( $is_onboarding) : ?>
-					<section class="noravo-panel noravo-onboarding">
-						<div>
-							<h2><?php esc_html_e( 'Start with a confident preview', 'noravo' ); ?></h2>
-							<p><?php esc_html_e( 'Demo mode is enabled by default so you can see Noravo working immediately. Connect WooCommerce when you are ready to use real purchase activity.', 'noravo' ); ?></p>
-						</div>
-						<ul>
-							<?php foreach ( $integrations as $integration) : ?>
-								<li>
-									<strong><?php echo esc_html( $integration->label() ); ?></strong>
-									<span><?php echo $integration->is_available() ? esc_html__( 'Detected', 'noravo' ) : esc_html__( 'Not installed', 'noravo' ); ?></span>
-								</li>
-							<?php endforeach; ?>
-						</ul>
-					</section>
-				<?php endif; ?>
-
-				<div class="noravo-grid">
-					<section class="noravo-panel">
-						<h2><?php esc_html_e( 'Summary', 'noravo' ); ?></h2>
-						<div class="noravo-summary">
-							<div>
+				<section class="noravo-dashboard-card">
+					<header class="noravo-dashboard-card-header">
+						<span class="noravo-dashboard-step">1</span>
+						<h1><?php esc_html_e( 'Dashboard', 'noravo' ); ?></h1>
+					</header>
+					<div class="noravo-dashboard-card-body">
+						<h2><?php esc_html_e( 'Noravo Dashboard', 'noravo' ); ?></h2>
+						<div class="noravo-dashboard-summary">
+							<div class="is-blue">
+								<small><?php esc_html_e( 'Status', 'noravo' ); ?></small>
 								<strong><?php echo $settings['enabled'] ? esc_html__( 'Live', 'noravo' ) : esc_html__( 'Paused', 'noravo' ); ?></strong>
-								<span><?php esc_html_e( 'Notification status', 'noravo' ); ?></span>
+								<span><?php esc_html_e( 'Notifications', 'noravo' ); ?></span>
 							</div>
-							<div>
-								<strong><?php echo $settings['demo_mode'] ? esc_html__( 'On', 'noravo' ) : esc_html__( 'Off', 'noravo' ); ?></strong>
-								<span><?php esc_html_e( 'Demo mode', 'noravo' ); ?></span>
+							<div class="is-green">
+								<small><?php esc_html_e( 'Active', 'noravo' ); ?></small>
+								<strong><?php echo esc_html((string) count($active_rules)); ?></strong>
+								<span><?php esc_html_e( 'Automation rules', 'noravo' ); ?></span>
 							</div>
-							<div>
+							<div class="is-purple">
+								<small><?php esc_html_e( 'Enabled', 'noravo' ); ?></small>
 								<strong><?php echo esc_html((string) $enabled_count); ?></strong>
-								<span><?php esc_html_e( 'Enabled sources', 'noravo' ); ?></span>
+								<span><?php esc_html_e( 'Integrations', 'noravo' ); ?></span>
 							</div>
-							<div>
+							<div class="is-orange">
+								<small><?php esc_html_e( 'Display', 'noravo' ); ?></small>
 								<strong><?php echo esc_html(ucwords(str_replace( '-', ' ', (string) $settings['position']) ) ); ?></strong>
 								<span><?php esc_html_e( 'Position', 'noravo' ); ?></span>
 							</div>
 						</div>
-					</section>
-
-					<section class="noravo-panel">
-						<h2><?php esc_html_e( 'Integrations', 'noravo' ); ?></h2>
-						<?php foreach ( $integrations as $integration) : ?>
-							<?php $available = $integration->is_available(); ?>
-							<label class="noravo-check">
-								<input type="checkbox" <?php checked($available); ?> disabled>
-								<span>
-									<strong>
-										<?php echo esc_html( $integration->label() ); ?>
-										<?php $this->help( $integration->description() ); ?>
-									</strong>
-								</span>
-								<em><?php echo $available ? esc_html__( 'Detected', 'noravo' ) : esc_html__( 'Not installed', 'noravo' ); ?></em>
-							</label>
-						<?php endforeach; ?>
-					</section>
-				</div>
+						<div class="noravo-dashboard-grid">
+							<section class="noravo-dashboard-panel">
+								<h3><?php esc_html_e( 'Recent Notifications', 'noravo' ); ?></h3>
+								<ul class="noravo-dashboard-notifications">
+									<?php if (empty($recent_items)) : ?>
+										<li class="noravo-dashboard-empty"><?php esc_html_e( 'No recent notifications.', 'noravo' ); ?></li>
+									<?php endif; ?>
+									<?php foreach ( $recent_items as $item ) : ?>
+										<li>
+											<span class="dashicons <?php echo esc_attr($this->dashboard_notification_icon((string) $item['icon'])); ?>" aria-hidden="true"></span>
+											<p><?php echo esc_html($item['message']); ?></p>
+										</li>
+									<?php endforeach; ?>
+								</ul>
+							</section>
+							<section class="noravo-dashboard-panel">
+								<h3><?php esc_html_e( 'Quick Actions', 'noravo' ); ?></h3>
+								<div class="noravo-dashboard-actions">
+									<button type="button" data-noravo-open-rule-modal>
+										<span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
+										<?php esc_html_e( 'Create New Rule', 'noravo' ); ?>
+									</button>
+									<a href="<?php echo esc_url(admin_url('admin.php?page=noravo-integrations')); ?>">
+										<span class="dashicons dashicons-admin-plugins" aria-hidden="true"></span>
+										<?php esc_html_e( 'Configure Integrations', 'noravo' ); ?>
+									</a>
+									<a href="<?php echo esc_url(admin_url('admin.php?page=noravo-appearance')); ?>">
+										<span class="dashicons dashicons-admin-appearance" aria-hidden="true"></span>
+										<?php esc_html_e( 'Configure Appearance', 'noravo' ); ?>
+									</a>
+									<a href="<?php echo esc_url(admin_url('admin.php?page=noravo-settings')); ?>">
+										<span class="dashicons dashicons-admin-settings" aria-hidden="true"></span>
+										<?php esc_html_e( 'Settings', 'noravo' ); ?>
+									</a>
+								</div>
+							</section>
+						</div>
+					</div>
+				</section>
+				<?php $this->render_rule_modal($trigger_groups, $action_groups); ?>
 			</div>
 		</div>
 		<?php
@@ -900,6 +921,103 @@ final class AdminPage {
 			</div>
 		</div>
 		<?php
+	}
+
+	/** Renders the create-rule trigger/action modal. */
+	private function render_rule_modal(array $trigger_groups, array $action_groups): void {
+		?>
+		<div class="noravo-rule-modal" id="noravo-rule-modal" aria-hidden="true">
+			<div class="noravo-rule-modal-panel" role="dialog" aria-modal="true" aria-labelledby="noravo-rule-modal-title">
+				<header class="noravo-rule-modal-header">
+					<h2 id="noravo-rule-modal-title" data-noravo-modal-title><?php esc_html_e( 'Select a trigger for your automation rule', 'noravo' ); ?></h2>
+					<div class="noravo-rule-modal-actions">
+						<button type="button" aria-label="<?php esc_attr_e( 'Go back', 'noravo' ); ?>" data-noravo-rule-back hidden>
+							<span class="dashicons dashicons-arrow-left-alt2"></span>
+						</button>
+						<button type="button" aria-label="<?php esc_attr_e( 'Close', 'noravo' ); ?>" data-noravo-close-rule-modal>
+							<span class="dashicons dashicons-no-alt"></span>
+						</button>
+					</div>
+				</header>
+				<div class="noravo-rule-modal-step is-active" data-noravo-rule-step="trigger">
+					<div class="noravo-rule-modal-body">
+						<nav class="noravo-trigger-categories" aria-label="<?php esc_attr_e( 'Trigger categories', 'noravo' ); ?>">
+							<?php foreach ( $trigger_groups as $group_key => $group ) : ?>
+								<button type="button" class="<?php echo 'orders' === $group_key ? 'is-active' : ''; ?>" data-noravo-trigger-group="<?php echo esc_attr( $group_key); ?>">
+									<?php echo esc_html( $group['label']); ?>
+								</button>
+							<?php endforeach; ?>
+						</nav>
+						<div class="noravo-trigger-groups">
+							<?php foreach ( $trigger_groups as $group_key => $group ) : ?>
+								<section class="noravo-trigger-group <?php echo 'orders' === $group_key ? 'is-active' : ''; ?>" data-noravo-trigger-panel="<?php echo esc_attr( $group_key); ?>">
+									<h3><?php echo esc_html( $group['label']); ?></h3>
+									<div class="noravo-trigger-cards">
+										<?php foreach ( $group['triggers'] as $trigger ) : ?>
+											<article class="noravo-trigger-card">
+												<header>
+													<h4><?php echo esc_html( $trigger['title']); ?></h4>
+													<span class="dashicons dashicons-money-alt" aria-hidden="true"></span>
+												</header>
+												<p><?php echo esc_html( $trigger['description']); ?></p>
+												<button type="button" class="button button-primary" data-noravo-select-trigger="<?php echo esc_attr( $trigger['id']); ?>">
+													<?php esc_html_e( 'Use trigger', 'noravo' ); ?>
+													<span class="dashicons dashicons-arrow-right-alt" aria-hidden="true"></span>
+												</button>
+											</article>
+										<?php endforeach; ?>
+									</div>
+								</section>
+							<?php endforeach; ?>
+						</div>
+					</div>
+				</div>
+				<div class="noravo-rule-modal-step" data-noravo-rule-step="action">
+					<div class="noravo-rule-modal-body">
+						<nav class="noravo-trigger-categories" aria-label="<?php esc_attr_e( 'Action categories', 'noravo' ); ?>">
+							<?php foreach ( $action_groups as $group_key => $group ) : ?>
+								<button type="button" class="<?php echo 'campaigns' === $group_key ? 'is-active' : ''; ?>" data-noravo-action-group="<?php echo esc_attr( $group_key); ?>">
+									<?php echo esc_html( $group['label']); ?>
+								</button>
+							<?php endforeach; ?>
+						</nav>
+						<div class="noravo-trigger-groups">
+							<?php foreach ( $action_groups as $group_key => $group ) : ?>
+								<section class="noravo-trigger-group <?php echo 'campaigns' === $group_key ? 'is-active' : ''; ?>" data-noravo-action-panel="<?php echo esc_attr( $group_key); ?>">
+									<h3><?php echo esc_html( $group['label']); ?></h3>
+									<div class="noravo-trigger-cards">
+										<?php foreach ( $group['actions'] as $action ) : ?>
+											<article class="noravo-trigger-card">
+												<header>
+													<h4><?php echo esc_html( $action['title']); ?></h4>
+													<span class="dashicons dashicons-megaphone" aria-hidden="true"></span>
+												</header>
+												<p><?php echo esc_html( $action['description']); ?></p>
+												<button type="button" class="button button-primary" data-noravo-select-action="<?php echo esc_attr( $action['id']); ?>">
+													<?php esc_html_e( 'Set up', 'noravo' ); ?>
+													<span class="dashicons dashicons-arrow-right-alt" aria-hidden="true"></span>
+												</button>
+											</article>
+										<?php endforeach; ?>
+									</div>
+								</section>
+							<?php endforeach; ?>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/** Maps frontend icon keys to dashboard dashicons. */
+	private function dashboard_notification_icon(string $icon): string {
+		return match (sanitize_key($icon)) {
+			'bag'   => 'dashicons-cart',
+			'spark' => 'dashicons-star-filled',
+			'star'  => 'dashicons-star-filled',
+			default => 'dashicons-marker',
+		};
 	}
 
 	/** Outputs the integrations admin page. */
